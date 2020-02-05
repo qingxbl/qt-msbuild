@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <QT_VERSION_MAJOR>4</QT_VERSION_MAJOR>
+    <QT_VERSION_MINOR>7</QT_VERSION_MINOR>
+    <QT_VERSION_PATCH>1</QT_VERSION_PATCH>
+    <QT_VERSION>$(QT_VERSION_MAJOR).$(QT_VERSION_MINOR).$(QT_VERSION_PATCH)</QT_VERSION>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <DependPackage Include="dw3rd\qt2015-4.7.1">
+      <URLPrefix>http://repo.yy.com/dwintegrate</URLPrefix>
+      <Version>2019.471.2.21</Version>
+      <CopyFileInclude></CopyFileInclude>
+    </DependPackage>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <QTDIR>D:\Work\Qt\myenv-vc9-x86</QTDIR>
+    <RelativeQTDIR>$([MSBuild]::MakeRelative($(ProjectDir), $(QTDIR)))</RelativeQTDIR>
+    <QtLib Condition="'$(QtLib)' == ''">Core</QtLib>
+    <QtIntDir Condition="'$(QtIntDir)' == ''">$(IntDir)gen\</QtIntDir>
+    <QtMocSingleFileMode Condition="'$(QtMocSingleFileMode)' != 'false'">true</QtMocSingleFileMode>
+    <QtMocSingleFileName Condition="'$(QtMocSingleFileName)' == ''">$(QtIntDir)mocall_$(ProjectName)$(DefaultLanguageSourceExtension)</QtMocSingleFileName>
+    <QtMocRunParallel Condition="'$(QtMocRunParallel)' == ''">true</QtMocRunParallel>
+    <QtMocFile_Rsp_Name>$(QtIntDir)$(ProjectName)_moc.proj</QtMocFile_Rsp_Name>
+    <QtQrcIncludeFileName Condition="'$(QtQrcIncludeFileName)' == ''">qrc_include_$(ProjectName).qrc</QtQrcIncludeFileName>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <QtUic>
+      <GeneratedFile Condition="'%(GeneratedFile)' == ''">$(IntDir)gen\ui_%(Filename).h</GeneratedFile>
+    </QtUic>
+
+    <QtQrc>
+      <GeneratedFile Condition="'%(GeneratedFile)' == ''">$(IntDir)gen\qrc_$(ProjectName)$(DefaultLanguageSourceExtension)</GeneratedFile>
+    </QtQrc>
+
+    <QtQrcInclude>
+      <Lang></Lang>
+      <Prefix></Prefix>
+      <Alias></Alias>
+      <BasePath>.</BasePath>
+    </QtQrcInclude>
+
+    <ClCompile>
+      <QtMoc Condition="'%(QtMoc)' == ''">false</QtMoc>
+      <QtMocFileName Condition="'%(QtMocFileName)' == ''">$(IntDir)gen\%(Filename).moc</QtMocFileName>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">QT_NO_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>QT_HAVE_MMX;QT_HAVE_SSE;QT_HAVE_MMXEXT;QT_HAVE_SSE2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+
+    <ClInclude>
+      <QtMoc Condition="'%(QtMoc)' == ''">false</QtMoc>
+      <QtMocAutoBuild Condition="'%(QtMocAutoBuild)' == ''">true</QtMocAutoBuild>
+      <QtMocFileName Condition="'%(QtMocFileName)' == ''">$(IntDir)gen\moc_%(Filename)$(DefaultLanguageSourceExtension)</QtMocFileName>
+    </ClInclude>
+
+    <Link>
+      <AdditionalLibraryDirectories>$(RelativeQTDIR)\lib\$(OutDirConf);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+
+</Project>

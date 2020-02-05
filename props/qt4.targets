@@ -1,0 +1,520 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0"  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <QtLibSuffix Condition="'$(Configuration)'=='Debug'">d</QtLibSuffix>
+    <QtLibAdditionalIncludeDirectories>$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(\w+)(;|%24)', '$(RelativeQTDIR)\include\Qt%241;').Split(';'))</QtLibAdditionalIncludeDirectories>
+    <QtLibAdditionalIncludeDirectories Condition="'$(QtUsePrivate)'=='true' or '$(QtBootstrap)'=='true'">$(QtLibAdditionalIncludeDirectories);$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(\w+)(;|%24)', '$(RelativeQTDIR)\include\Qt%241\private;').Split(';'))</QtLibAdditionalIncludeDirectories>
+    <QtLibPreprocessorDefinitions>$([System.Text.RegularExpressions.Regex]::Replace($(QtLib.toUpper()), '(\w+)(;|%24)', 'QT_%241_LIB;').Split(';'))</QtLibPreprocessorDefinitions>
+  </PropertyGroup>
+
+  <Choose>
+    <When Condition="'$(QtBootstrap)'!='true'">
+      <PropertyGroup>
+        <QtLibPreprocessorDefinitions>QT_DLL;QT_THREAD_SUPPORT;$(QtLibPreprocessorDefinitions)</QtLibPreprocessorDefinitions>
+        <QtLibAdditionalDependencies>$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(?&lt;lib&gt;\w+)(;|%24)', 'Qt%24{lib}$(QtLibSuffix)4.lib;').Split(';'))</QtLibAdditionalDependencies>
+
+        <CppCleanDependsOn>
+          $(CppCleanDependsOn);
+          _QtCleanupTask;
+        </CppCleanDependsOn>
+
+        <BeforeClCompileTargets>
+          $(BeforeClCompileTargets);
+          _QtCompileTask;
+        </BeforeClCompileTargets>
+
+      </PropertyGroup>
+
+      <ItemGroup>
+        <PropertyPageSchema Include="$(MSBuildThisFileDirectory)$(MSBuildThisFileName).xml" />
+
+        <AvailableItemName Include="QtUic" />
+        <AvailableItemName Include="QtQrc" />
+        <AvailableItemName Include="QtQrcInclude" />
+
+        <QtLib Include="$(QtLib)"/>
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <QtLibPreprocessorDefinitions>Z_PREFIX;QT_BOOTSTRAPPED;QT_USE_QSTRINGBUILDER;QT_NO_FOREACH;QT_VERSION_STR="$(QT_VERSION)";QT_VERSION_MAJOR=$(QT_VERSION_MAJOR);QT_VERSION_MINOR=$(QT_VERSION_MINOR);QT_VERSION_PATCH=$(QT_VERSION_PATCH);$(QtLibPreprocessorDefinitions)</QtLibPreprocessorDefinitions>
+        <QtLibPreprocessorDefinitions Condition="'$(Configuration)'=='Release'">QT_NO_DEBUG;$(QtLibPreprocessorDefinitions)</QtLibPreprocessorDefinitions>
+        <QtLibAdditionalIncludeDirectories>$(RelativeQTDIR)\src\build-bootstrap;$(QtLibAdditionalIncludeDirectories)</QtLibAdditionalIncludeDirectories>
+        <QtLibAdditionalDependencies>Netapi32.lib;$(QtLibAdditionalDependencies)</QtLibAdditionalDependencies>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <!--<AdditionalIncludeDirectories>$(QtLibAdditionalIncludeDirectories);$(QtIntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>-->
+      <AdditionalIncludeDirectories>$(QtIntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>$(QtLibPreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <!--<AdditionalDependencies>$(QtLibAdditionalDependencies);%(AdditionalDependencies)</AdditionalDependencies>-->
+    </Link>
+    <QtLib>
+      <Library>Qt%(Identity)$(QtLibSuffix)4.dll</Library>
+    </QtLib>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClCompile Include="$(QtMocSingleFileName)">
+      <ExcludedFromBuild Condition="'$(QtMocSingleFileMode)' != 'true'">true</ExcludedFromBuild>
+      <QtMocTemplateMask>true</QtMocTemplateMask>
+    </ClCompile>
+  </ItemGroup>
+
+
+  <Target Name="MakeDirsForQtUicTask" Outputs="@(QtUic->Metadata('GeneratedFile')->DirectoryName()->Distinct())" >
+    <MakeDir Directories="@(QtUic->Metadata('GeneratedFile')->DirectoryName()->Distinct())" />
+  </Target>
+
+  <Target Name="MakeDirsForQtQrcTask" Outputs="@(QtQrc->Metadata('GeneratedFile')->DirectoryName()->Distinct())">
+    <MakeDir Directories="@(QtQrc->Metadata('GeneratedFile')->DirectoryName()->Distinct())" />
+    <MakeDir Directories="$(QtQrcIncludeFileDir)" />
+  </Target>
+
+  <Target Name="CleanupUicFiles" DependsOnTargets="MakeDirsForQtUicTask">
+    <Delete Files="%(QtUic.GeneratedFile)" />
+  </Target>
+
+  <Target Name="CleanupQrcFiles" DependsOnTargets="MakeDirsForQtQrcTask">
+    <Delete Files="%(QtQrc.GeneratedFile)" />
+    <Delete Files="$(QtQrcIncludeFileName)" />
+  </Target>
+
+  <Target Name="_QtUicTask"
+          Condition="'@(QtUic)' != ''"
+          DependsOnTargets="MakeDirsForQtUicTask"
+          Inputs="@(QtUic)" Outputs="%(GeneratedFile)">
+    <ItemGroup>
+      <ClInclude Include="%(GeneratedFile)" />
+    </ItemGroup>
+    <Message Importance="high" Text="UIC %(Identity) -> $([System.IO.Path]::GetFileName('%(GeneratedFile)'))" />
+    <Exec Command="$(QTDIR)\bin\uic.exe &quot;%(Identity)&quot; -o &quot;(GeneratedFile)&quot;"/>
+  </Target>
+
+  <Target Name="_QtQrcIncludeTask"
+          Condition="'@(QtQrcInclude)' != ''"
+          DependsOnTargets="MakeDirsForQtQrcTask"
+          Inputs="@(QtQrcInclude)" Outputs="$(QtQrcIncludeFileName)">
+    <ItemGroup>
+      <QtQrcInclude>
+        <IncludePath>$([MSBuild]::MakeRelative($(QtQrcIncludeFileDir), $(ProjectDir)%(Identity)))</IncludePath>
+        <Alias Condition="'%(Alias)'==''">$([MSBuild]::MakeRelative($(ProjectDir)%(BasePath), $(ProjectDir)%(Identity)))</Alias>
+        <Lang Condition="'%(Lang)'!=''"> lang=&quot;%(Lang)&quot;</Lang>
+      </QtQrcInclude>
+    </ItemGroup>
+    <ItemGroup>
+      <QtQrcInclude>
+        <Alias Condition="'%(Prefix)'!=''">%(Prefix)/%(Alias)</Alias>
+      </QtQrcInclude>
+    </ItemGroup>
+    <ItemGroup>
+      <QtQrcInclude>
+        <BeginLine>&lt;qresource%(QtQrcInclude.Lang)&gt;</BeginLine>
+        <FileLine>    &lt;file alias=&quot;$([System.String]::new(%(QtQrcInclude.Alias)).Replace("\", "/"))&quot;&gt;$([System.String]::new(%(QtQrcInclude.IncludePath)).Replace("\", "/"))&lt;/file&gt;</FileLine>
+        <EndLine>&lt;/qresource&gt;</EndLine>
+      </QtQrcInclude>
+    </ItemGroup>
+
+    <ItemGroup>
+      <QtQrcIncludeFileContent Include="&lt;RCC&gt;" />
+      <QtQrcIncludeFileContent Include="%(QtQrcInclude.BeginLine)%(QtQrcInclude.FileLine)%(QtQrcInclude.EndLine)" />
+      <QtQrcIncludeFileContent Include="&lt;/RCC&gt;" />
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(QtQrcIncludeFileName)"
+                      Lines="@(QtQrcIncludeFileContent)"
+                      Overwrite="true" />
+    <ItemGroup>
+      <QtQrcIncludeFileContent Remove="@QtQrcIncludeFileContent" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_QtQrcTask"
+          Condition="'@(QtQrc)' != ''"
+          DependsOnTargets="_QtQrcIncludeTask;MakeDirsForQtQrcTask"
+          Inputs="@(QtQrc->'%(Identity)');@(QtQrcInclude)" Outputs="%(QtQrc.GeneratedFile)">
+    <ItemGroup>
+      <ClCompile Include="%(QtQrc.GeneratedFile)" />
+    </ItemGroup>
+    <Message Importance="high" Text="QRC $([System.IO.Path]::GetFileName(%(QtQrc.GeneratedFile)))" />
+    <Exec Command="$(QTDIR)\bin\rcc.exe @(QtQrc->'&quot;%(Identity)&quot;', ' ') -o &quot;%(QtQrc.GeneratedFile)&quot;"/>
+  </Target>
+
+
+
+
+
+
+  <Target Name="_QtPrepareTask">
+    <PropertyGroup>
+      <QtQrcIncludeFileName>$(QtIntDir)$(QtQrcIncludeFileName)</QtQrcIncludeFileName>
+      <QtQrcIncludeFileDir>$([System.IO.Directory]::GetParent($(QtQrcIncludeFileName)))</QtQrcIncludeFileDir>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <QtQrc Include="$(QtQrcIncludeFileName)" Condition="'@(QtQrcInclude)'!=''"/>
+    </ItemGroup>
+  </Target>
+
+<!-- Compile Tasks -->
+  <Target Name="_QtCompileTask"
+          DependsOnTargets="_QtCompilePrepareTask;_QtMocTask;_QtUicTask;_QtQrcTask" />
+  <Target Name="_QtCompilePrepareTask"
+          DependsOnTargets="_QtPrepareTask">
+    <MakeDir Directories="$(QtIntDir)" Condition="!Exists($(QtIntDir))"/>
+  </Target>
+
+<!-- Cleanup Tasks -->
+  <Target Name="_QtCleanupTask"
+          DependsOnTargets="_QtCompilePrepareTask;_QtMocCleanupTask;CleanupUicFiles;CleanupQrcFiles" />
+  <Target Name="_QtCleanupPrepareTask"
+          DependsOnTargets="_QtPrepareTask">
+  </Target>
+
+  <!-- Moc -->
+  <Target Name="_QtMocTask"
+          DependsOnTargets="_QtMocPrepare;_QtMocReadCache;_QtMocCheck;_QtMocCompute;_QtMocWriteCache;_QtMocRun" />
+  <Target Name="_QtMocCleanupTask"
+          DependsOnTargets="_QtMocPrepare;_QtMocReadCache;_QtMocCheck;_QtMocCompute;_QtMocCleanup" />
+
+  <!-- Moc::Prepare -->
+  <Target Name="_QtMocPrepare">
+    <ItemGroup>
+      <ClCompileTemp Include="@(ClCompile)" Condition="'%(ClCompile.QtMocTemplateMask)'=='true'" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <Qt_PreprocessorDefinitions_Default>@(ClCompileTemp->'%(PreprocessorDefinitions)')</Qt_PreprocessorDefinitions_Default>
+      <Qt_AdditionalIncludeDirectories_Default>@(ClCompileTemp->'%(AdditionalIncludeDirectories)')</Qt_AdditionalIncludeDirectories_Default>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ClCompileTemp Remove="@(ClCompileTemp)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Moc::ReadCache -->
+  <Target Name="_QtMocReadCache"
+          Condition="Exists($(QtMocSingleFileName))">
+    <ReadLinesFromFile File="$(QtMocSingleFileName)">
+      <Output TaskParameter="Lines" ItemName="LinesFromReadFile"/>
+    </ReadLinesFromFile>
+
+    <ItemGroup>
+      <QtMocSource_Lines Include="@(LinesFromReadFile)" Condition="$([System.String]::new('%(Identity)').StartsWith('// QtMocSource: '))">
+        <File>$([System.String]::new('%(Identity)').Substring(16))</File>
+      </QtMocSource_Lines>
+      <QtMocHeader_Lines Include="@(LinesFromReadFile)" Condition="$([System.String]::new('%(Identity)').StartsWith('// QtMocHeader: '))">
+        <File>$([System.String]::new('%(Identity)').Substring(16))</File>
+      </QtMocHeader_Lines>
+      <QtMocSource_MocIncluded_Lines Include="@(LinesFromReadFile)" Condition="$([System.String]::new('%(Identity)').StartsWith('// QtMocSource_MocIncluded: '))">
+        <Info>$([System.String]::new('%(Identity)').Substring(28))</Info>
+      </QtMocSource_MocIncluded_Lines>
+      <QtMocSource_MocIncluded_Lines>
+        <SourceFile>$([System.Text.RegularExpressions.Regex]::Replace('%(Info)', '^([^:]+):(.+)$', '%241'))</SourceFile>
+        <HeaderFile>$([System.Text.RegularExpressions.Regex]::Replace('%(Info)', '^([^:]+):(.+)$', '%242'))</HeaderFile>
+      </QtMocSource_MocIncluded_Lines>
+
+      <QtMocHeader Include="%(QtMocHeader_Lines.File)" Condition="Exists('%(QtMocHeader_Lines.File)')" />
+      <QtMocSource Include="%(QtMocSource_Lines.File)" Condition="Exists('%(QtMocSource_Lines.File)')" />
+      <QtMocSource_MocIncluded Include="%(QtMocSource_MocIncluded_Lines.SourceFile)" Condition="Exists('%(QtMocSource_MocIncluded_Lines.SourceFile)')">
+        <SourceFile>%(QtMocSource_MocIncluded_Lines.SourceFile)</SourceFile>
+        <HeaderFile>%(QtMocSource_MocIncluded_Lines.HeaderFile)</HeaderFile>
+      </QtMocSource_MocIncluded>
+
+      <QtMocCacheInvalided_Cond Include="%(QtMocHeader_Lines.File)" Condition="!Exists('%(QtMocHeader_Lines.File)')" />
+      <QtMocCacheInvalided_Cond Include="%(QtMocSource_Lines.File)" Condition="!Exists('%(QtMocSource_Lines.File)')" />
+      <QtMocCacheInvalided_Cond Include="%(QtMocSource_MocIncluded_Lines.SourceFile)" Condition="!Exists('%(QtMocSource_MocIncluded_Lines.SourceFile)')" />
+
+      <QtMocSource_Lines Remove="@(QtMocSource_Lines)" />
+      <QtMocHeader_Lines Remove="@(QtMocHeader_Lines)" />
+      <QtMocSource_MocIncluded_Lines Remove="@(QtMocSource_MocIncluded_Lines)" />
+      <LinesFromReadFile Remove="@(LinesFromReadFile)" />
+    </ItemGroup>
+
+    <!-- Cache is invalided. Check all files again. -->
+    <Delete Files="$(QtMocSingleFileName)" Condition="'@(QtMocCacheInvalided_Cond->Count())' != '0'" />
+
+    <ItemGroup>
+      <QtMocCacheInvalided_Cond Remove="@(QtMocCacheInvalided_Cond)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Moc::Check -->
+  <Target Name="_QtMocCheck"
+          DependsOnTargets="_QtMocCheckSource;_QtMocCheckHeader" />
+  <Target Name="_QtMocCheckSource"
+          Inputs="%(ClCompile.Identity)" Outputs="$(QtMocSingleFileName)">
+    <PropertyGroup>
+      <QtMocCheckSource_CurrentFilename>@(ClCompile->'%(Filename)')</QtMocCheckSource_CurrentFilename>
+    </PropertyGroup>
+    <ReadLinesFromFile File="%(ClCompile.Identity)">
+      <Output TaskParameter="Lines" ItemName="LinesFromReadFile"/>
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <!-- Set QtMoc if the file contains #include %(Filename).moc -->
+      <QtMocSource_MocCpp_Cond Include="@(LinesFromReadFile)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)', '^\s*\#include\s*[&quot;&lt;]$(QtMocCheckSource_CurrentFilename)\.moc[&quot;&gt;]\s*$'))" />
+
+      <!-- Find moc header in source file -->
+      <QtMocSource_MocIncluded_Current Include="@(LinesFromReadFile)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)', '^\s*\#include\s*[&quot;&lt;]moc_(.+)\$(DefaultLanguageSourceExtension)[&quot;&gt;]\s*$'))">
+        <RawFilename>$([System.Text.RegularExpressions.Regex]::Replace('%(Identity)', '^\s*\#include\s*[&quot;&lt;]moc_(.+)\$(DefaultLanguageSourceExtension)[&quot;&gt;]\s*$', '%241.h'))</RawFilename>
+      </QtMocSource_MocIncluded_Current>
+      <QtMocSource_MocIncluded_Extended Include="@(QtMocSource_MocIncluded_Current->'%(RawFilename)')">
+        <SourceFile>@(ClCompile->'%(Identity)')</SourceFile>
+      </QtMocSource_MocIncluded_Extended>
+      <QtMocSource_MocIncluded_Extended Condition="'%(Filename)%(Extension)' != '' and '@(QtMocSource_MocIncluded_Extended)' != '' and '@(ClInclude)' != ''">
+        <HeaderFile>@(ClInclude->'%(Identity)')</HeaderFile>
+      </QtMocSource_MocIncluded_Extended>
+      <QtMocSource_MocIncluded_Extended Remove="@(QtMocSource_MocIncluded_Extended)" Condition="'%(HeaderFile)' == ''" />
+      <QtMocSource_MocIncluded Remove="'%(ClCompile.Identity)'" />
+      <QtMocSource_MocIncluded Include="@(QtMocSource_MocIncluded_Extended->'%(SourceFile)')" />
+
+      <QtMocSource_Checked Include="%(ClCompile.Identity)">
+        <Checked Condition="'@(LinesFromReadFile)' != ''">true</Checked>
+        <Enable Condition="'@(QtMocSource_MocCpp_Cond)' != ''">true</Enable>
+      </QtMocSource_Checked>
+
+      <QtMocSource_MocIncluded_Extended Remove="@(QtMocSource_MocIncluded_Extended)" />
+      <QtMocSource_MocIncluded_Current Remove="@(QtMocSource_MocIncluded_Current)" />
+      <QtMocSource_MocCpp_Cond Remove="@(QtMocSource_MocCpp_Cond)" />
+      <LinesFromReadFile Remove="@(LinesFromReadFile)" />
+    </ItemGroup>
+    <PropertyGroup>
+      <QtMocCheckSource_CurrentFilename></QtMocCheckSource_CurrentFilename>
+    </PropertyGroup>
+  </Target>
+  <Target Name="_QtMocCheckHeader"
+          Inputs="%(ClInclude.Identity)" Outputs="$(QtMocSingleFileName)">
+    <ReadLinesFromFile File="%(ClInclude.Identity)" >
+      <Output TaskParameter="Lines" ItemName="LinesFromReadFile"/>
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <!-- Find Q_OBJECT or Q_GADGET in header file -->
+      <QtMocHeader_MocHeader_Cond Include="@(LinesFromReadFile)" Condition="$([System.String]::new('%(Identity)').Contains('Q_OBJECT')) or $([System.String]::new('%(Identity)').Contains('Q_GADGET'))" />
+
+      <QtMocHeader_Checked Include="%(ClInclude.Identity)">
+        <Checked Condition="'@(LinesFromReadFile)' != ''">true</Checked>
+        <Enable Condition="@(QtMocHeader_MocHeader_Cond) != ''">true</Enable>
+      </QtMocHeader_Checked>
+
+      <QtMocHeader_MocHeader_Cond Remove="@(QtMocHeader_MocHeader_Cond)" />
+      <LinesFromReadFile Remove="@(LinesFromReadFile)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Moc::Compute -->
+  <Target Name="_QtMocCompute"
+          DependsOnTargets="_QtMocComputeSource;_QtMocComputeHeader">
+    <ItemGroup>
+      <QtMocFiles Include="@(QtMocHeader);@(QtMocSource)">
+        <Param>-D&quot;$([System.String]::new('%(PreprocessorDefinitions)').Replace(';;', ';').Trim(';').Replace(';', '&quot; -D&quot;'))&quot; -I&quot;$([System.String]::new('%(AdditionalIncludeDirectories)').Replace(';;', ';').Replace('\;', ';').Trim(';').Trim('\').Replace(';', '&quot; -I&quot;'))&quot;</Param>
+      </QtMocFiles>
+    </ItemGroup>
+  </Target>
+  <Target Name="_QtMocComputeHeader">
+    <!-- Header files -->
+    <ItemGroup>
+      <!-- 1. Remove files that checked -->
+      <QtMocHeader Remove="@(QtMocHeader_Checked)" Condition="'%(QtMocHeader_Checked.Enable)' == 'true'" />
+      <!-- 2. Add files that needs moc -->
+      <QtMocHeader Include="@(QtMocHeader_Checked)" Condition="'%(QtMocHeader_Checked.Enable)' == 'true'" />
+
+      <!-- 3. Set properties from default -->
+      <QtMocHeader Condition="'%(Identity)' != '' and '@(QtMocHeader)' != '' and '@(ClInclude)' != ''">
+        <PreprocessorDefinitions>$(Qt_PreprocessorDefinitions_Default)</PreprocessorDefinitions>
+        <AdditionalIncludeDirectories>$(Qt_AdditionalIncludeDirectories_Default)</AdditionalIncludeDirectories>
+
+        <Type>QtMocHeader</Type>
+        <OutputFile>$(QtIntDir)moc_%(Filename)$(DefaultLanguageSourceExtension)</OutputFile>
+      </QtMocHeader>
+
+      <!-- 4. Copy properties for private header from public source -->
+      <ClCompileForQtMocPrivate Include="@(ClCompile->'%(RelativeDir)%(Filename)_p%(Extension)')" />
+      <QtMocHeader Condition="'%(RelativeDir)%(Filename)' != '' and '@(QtMocHeader)' != '' and '@(ClCompileForQtMocPrivate)' != ''">
+        <PreprocessorDefinitions>@(ClCompileForQtMocPrivate->'%(PreprocessorDefinitions)')</PreprocessorDefinitions>
+        <AdditionalIncludeDirectories>@(ClCompileForQtMocPrivate->'%(AdditionalIncludeDirectories)')</AdditionalIncludeDirectories>
+      </QtMocHeader>
+      <ClCompileForQtMocPrivate Remove="@(ClCompileForQtMocPrivate)" />
+
+      <!-- 5. Copy properties for header from source -->
+      <QtMocHeader Condition="'%(RelativeDir)%(Filename)' != '' and '@(QtMocHeader)' != '' and '@(ClCompile)' != ''">
+        <PreprocessorDefinitions>@(ClCompile->'%(PreprocessorDefinitions)')</PreprocessorDefinitions>
+        <AdditionalIncludeDirectories>@(ClCompile->'%(AdditionalIncludeDirectories)')</AdditionalIncludeDirectories>
+      </QtMocHeader>
+
+      <!-- 6. Copy properties for header from source that including moc result explicitly. Exclude from compile. -->
+      <QtMocSource_MocIncluded_GroupByHeader Include="@(QtMocSource_MocIncluded->'%(HeaderFile)')" />
+      <QtMocHeader Condition="'%(Identity)' != '' and '@(QtMocHeader)' != '' and '@(QtMocSource_MocIncluded_GroupByHeader)' != ''">
+        <PreprocessorDefinitions>@(QtMocSource_MocIncluded_GroupByHeader->'%(PreprocessorDefinitions)')</PreprocessorDefinitions>
+        <AdditionalIncludeDirectories>@(QtMocSource_MocIncluded_GroupByHeader->'%(AdditionalIncludeDirectories)')</AdditionalIncludeDirectories>
+
+        <IncludedBy>xxx @(QtMocSource_MocIncluded_GroupByHeader->'%(SourceFile)')</IncludedBy>
+      </QtMocHeader>
+      <QtMocSource_MocIncluded_GroupByHeader Remove="@(QtMocSource_MocIncluded_GroupByHeader)" />
+
+      <!-- Cleanup -->
+      <QtMocHeader_Checked Remove="@(QtMocHeader_Checked)" />
+      <QtMocHeader Remove="@(QtMocHeader)" Condition="'%(OutputFile)' == ''" />
+    </ItemGroup>
+  </Target>
+  <Target Name="_QtMocComputeSource">
+    <!-- Source files -->
+    <ItemGroup>
+      <!-- 1. Remove files that checked -->
+      <QtMocSource Remove="@(QtMocSource_Checked)" Condition="'%(QtMocSource_Checked.Checked)' == 'true'" />
+      <!-- 2. Add files that needs moc -->
+      <QtMocSource Include="@(QtMocSource_Checked)" Condition="'%(QtMocSource_Checked.Enable)' == 'true'" />
+
+      <!-- 3. Get properties from ClCompile -->
+      <QtMocSource Condition="'%(Identity)' != '' and '@(QtMocSource)' != '' and '@(ClCompile)' != ''">
+        <PreprocessorDefinitions>@(ClCompile->'%(PreprocessorDefinitions)')</PreprocessorDefinitions>
+        <AdditionalIncludeDirectories>@(ClCompile->'%(AdditionalIncludeDirectories)')</AdditionalIncludeDirectories>
+
+        <Type>QtMocSource</Type>
+        <OutputFile>$(QtIntDir)%(Filename).moc</OutputFile>
+      </QtMocSource>
+
+      <!-- 4. Get properties from ClCompile -->
+      <QtMocSource_MocIncluded Condition="'%(Identity)' != '' and '@(QtMocSource_MocIncluded)' != '' and '@(ClCompile)' != ''">
+        <Enable>true</Enable>
+        <PreprocessorDefinitions>@(ClCompile->'%(PreprocessorDefinitions)')</PreprocessorDefinitions>
+        <AdditionalIncludeDirectories>@(ClCompile->'%(AdditionalIncludeDirectories)')</AdditionalIncludeDirectories>
+      </QtMocSource_MocIncluded>
+
+      <!-- Cleanup -->
+      <QtMocSource_Checked Remove="@(QtMocSource_Checked)" />
+      <QtMocSource Remove="@(QtMocSource)" Condition="'%(OutputFile)' == ''" />
+      <QtMocSource_MocIncluded Remove="@(QtMocSource_MocIncluded)" Condition="'%(Enable)' != 'true'" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Moc::WriteCache -->
+  <Target Name="_QtMocWriteCache"
+          Inputs="@(ClInclude);@(ClCompile)" Outputs="$(QtMocSingleFileName)">
+    <ItemGroup>
+      <QtMocSource_MocIncluded_Cache Include="@(QtMocSource_MocIncluded)">
+        <Content>// QtMocSource_MocIncluded: %(Identity):%(HeaderFile)</Content>
+      </QtMocSource_MocIncluded_Cache>
+      <QtMocFiles_Cache Include="@(QtMocFiles)">
+        <Content>// %(Type): %(Identity)</Content>
+        <IncludeMocResult Condition="'%(Type)' == 'QtMocHeader' and '%(QtMocFiles.IncludedBy)' == ''">#include &quot;$([System.IO.Path]::GetFileName('%(OutputFile)'))&quot;</IncludeMocResult>
+      </QtMocFiles_Cache>
+
+      <QtMocCache Include="%(QtMocSource_MocIncluded_Cache.Content)" />
+      <QtMocCache Include="%(QtMocFiles_Cache.Content)" />
+      <QtMocCache Include="%(QtMocFiles_Cache.IncludeMocResult)" Condition="'%(QtMocFiles_Cache.IncludeMocResult)' != ''" />
+
+      <QtMocSource_MocIncluded_Cache Remove="@(QtMocSource_MocIncluded_Cache)" />
+      <QtMocHeader_Cache Remove="@(QtMocHeader_Cache)" />
+      <QtMocSource_Cache Remove="@(QtMocSource_Cache)" />
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(QtMocSingleFileName)"
+                      Lines="@(QtMocCache)"
+                      Overwrite="true" />
+
+    <ItemGroup>
+      <QtMocCache Remove="@(QtMocCache)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Moc::Run -->
+  <Target Name="_QtMocRun"
+          DependsOnTargets="_QtMocRunCompute;_QtMocRunLocal;_QtMocRunParallel" />
+  <Target Name="_QtMocRunCompute"
+          DependsOnTargets="_QtMocRunComputeRebuild">
+    <ItemGroup>
+      <QtMocFiles_Invalided Remove="@(QtMocFiles_Invalided)" Condition="'%(QtMocFiles_Invalided.Index)' == ''" />
+    </ItemGroup>
+    <PropertyGroup Condition="'@(QtMocFiles_Invalided->Count())' &lt; 2">
+      <QtMocRunParallel>false</QtMocRunParallel>
+    </PropertyGroup>
+  </Target>
+  <Target Name="_QtMocRunComputeRebuild"
+          Inputs="$(QTDIR)\bin\moc.exe;%(QtMocFiles.Identity)" Outputs="%(OutputFile)">
+    <CreateItem Include="@(QtMocFiles->'%(Identity)')" AdditionalMetadata="Index=$([System.Guid]::NewGuid().ToString('N'))">
+      <Output TaskParameter="Include" ItemName="QtMocFiles_Invalided" />
+    </CreateItem>
+  </Target>
+
+  <Target Name="_QtMocRunLocal"
+          Condition="'$(QtMocRunParallel)' != 'true'"
+          Inputs="$(QTDIR)\bin\moc.exe;%(QtMocFiles.Identity)" Outputs="%(OutputFile)">
+    <Message Importance="high" Text="MOC %(QtMocFiles.Identity) -> $([System.IO.Path]::GetFileName('%(OutputFile)'))" />
+    <Exec Command="$(QTDIR)\bin\moc.exe %(QtMocFiles.Param) &quot;%(Identity)&quot; -o &quot;%(OutputFile)&quot;" Outputs="%(OutputFile)" />
+  </Target>
+  <Target Name="_QtMocRunParallel"
+          DependsOnTargets="_QtMocRunParallelBuildRsp"
+          Condition="'$(QtMocRunParallel)' == 'true'">
+    <ItemGroup>
+      <QtMocFile_Rsp Include="&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;" />
+      <QtMocFile_Rsp Include="&lt;Project xmlns=&quot;http://schemas.microsoft.com/developer/msbuild/2003&quot; ToolsVersion=&quot;4.0&quot; DefaultTargets=&quot;Build&quot;&gt;" />
+      <QtMocFile_Rsp Include="  &lt;Target Name=&quot;Build&quot;&gt;" />
+      <QtMocFile_Rsp Include="    &lt;MSBuild Projects=&quot;%24(MSBuildThisFileFullPath)&quot; Targets=&quot;%24(TargetToInvoke)&quot; StopOnFirstFailure=&quot;true&quot; /&gt;" />
+      <QtMocFile_Rsp Include="  &lt;/Target&gt;" />
+      <QtMocFile_Rsp Include="@(QtMocFile_Rsp_Content)" />
+      <QtMocFile_Rsp Include="&lt;/Project&gt;" />
+
+      <QtMocFiles_Parallel Include="$(QtMocFile_Rsp_Name)">
+        <Properties>TargetToInvoke=Exec_%(QtMocFiles_Invalided.Index)</Properties>
+      </QtMocFiles_Parallel>
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(QtMocFile_Rsp_Name)"
+                      Lines="@(QtMocFile_Rsp)"
+                      Overwrite="true" />
+
+    <MSBuild Projects="@(QtMocFiles_Parallel)" BuildInParallel="true" StopOnFirstFailure="true" Targets="Build"/>
+
+    <ItemGroup>
+      <QtMocFile_Rsp_Content Remove="@(QtMocFile_Rsp_Content)" />
+      <QtMocFile_Rsp Remove="@(QtMocFile_Rsp)" />
+    </ItemGroup>
+  </Target>
+  <Target Name="_QtMocRunParallelBuildRsp"
+          Condition="'$(QtMocRunParallel)' == 'true'"
+          Inputs="%(QtMocFiles_Invalided.Identity)" Outputs="$(QtMocFile_Rsp_Name)">
+    <ItemGroup>
+      <QtMocFile_Rsp_Content Include="&lt;PropertyGroup&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;Message_%(QtMocFiles_Invalided.Index)&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;![CDATA[MOC %(QtMocFiles_Invalided.Identity) -> $([System.IO.Path]::GetFileName('%(QtMocFiles_Invalided.OutputFile)'))]]&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;/Message_%(QtMocFiles_Invalided.Index)&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;CommandLine_%(QtMocFiles_Invalided.Index)_RAW&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;![CDATA[&quot;$(QTDIR)\bin\moc.exe&quot; %(QtMocFiles_Invalided.Param) &quot;%(QtMocFiles_Invalided.Identity)&quot; -o &quot;%(QtMocFiles_Invalided.OutputFile)&quot;]]&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;/CommandLine_%(QtMocFiles_Invalided.Index)_RAW&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;/PropertyGroup&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;Target Name=&quot;Exec_%(QtMocFiles_Invalided.Index)&quot;&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;PropertyGroup&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;CommandLine_%(QtMocFiles_Invalided.Index)&gt;" />
+      <QtMocFile_Rsp_Content Include="%24([System.String]::new('%24(CommandLine_%(QtMocFiles_Invalided.Index)_RAW)').Replace(' -I&quot;&quot; ', ' '))" />
+      <QtMocFile_Rsp_Content Include="&lt;/CommandLine_%(QtMocFiles_Invalided.Index)&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;/PropertyGroup&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;Message Text=&quot;%24(Message_%(QtMocFiles_Invalided.Index))&quot; Importance=&quot;high&quot; /&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;Exec Command=&quot;%24(CommandLine_%(QtMocFiles_Invalided.Index))&quot; WorkingDirectory=&quot;$(MSBuildProjectDirectory)&quot;/&gt;" />
+      <QtMocFile_Rsp_Content Include="&lt;/Target&gt;" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Moc::Cleanup -->
+  <Target Name="_QtMocCleanup">
+    <Delete Files="@(QtMocHeader->'%(OutputFile)');@(QtMocSource->'%(OutputFile)');$(QtMocSingleFileName)" />
+    <Delete Files="$(QtMocFile_Rsp_Name)" />
+  </Target>
+
+  <Target Name="_QtLib"
+          BeforeTargets="PostBuildEvent"
+          Condition="'$(QtBootstrap)'!='true'"
+          Inputs="$(RelativeQTDIR)\bin\%(QtLib.Library)" Outputs="$(OutDir)%(QtLib.Library)">
+
+      <Copy
+          SourceFiles="$(RelativeQTDIR)\bin\$(OutDirConf)\%(QtLib.Library)"
+          DestinationFolder="$(OutDir)"
+        />
+      <Message Importance="high" Text="Copy %(QtLib.Library)" />
+  </Target>
+</Project>
