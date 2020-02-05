@@ -185,15 +185,17 @@
   <!-- Moc::Prepare -->
   <Target Name="_QtMocPrepare">
     <ItemGroup>
-      <ClCompileTemp Include="@(ClCompile)" Condition="'%(ClCompile.QtMocTemplateMask)'=='true'" />
+      <ClCompileTemp Include="@(ClCompile)" Condition="'%(ClCompile.QtMocTemplateMask)'!='true'" />
+      <ClCompile Remove="@(ClCompile)" Condition="'%(ClCompile.QtMocTemplateMask)'!='true'" />
     </ItemGroup>
 
     <PropertyGroup>
-      <Qt_PreprocessorDefinitions_Default>@(ClCompileTemp->'%(PreprocessorDefinitions)')</Qt_PreprocessorDefinitions_Default>
-      <Qt_AdditionalIncludeDirectories_Default>@(ClCompileTemp->'%(AdditionalIncludeDirectories)')</Qt_AdditionalIncludeDirectories_Default>
+      <Qt_PreprocessorDefinitions_Default>@(ClCompile->'%(PreprocessorDefinitions)')</Qt_PreprocessorDefinitions_Default>
+      <Qt_AdditionalIncludeDirectories_Default>@(ClCompile->'%(AdditionalIncludeDirectories)')</Qt_AdditionalIncludeDirectories_Default>
     </PropertyGroup>
 
     <ItemGroup>
+      <ClCompile Include="@(ClCompileTemp)" />
       <ClCompileTemp Remove="@(ClCompileTemp)" />
     </ItemGroup>
   </Target>
