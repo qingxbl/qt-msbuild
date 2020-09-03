@@ -297,7 +297,7 @@
     </ReadLinesFromFile>
     <ItemGroup>
       <!-- Find Q_OBJECT or Q_GADGET in header file -->
-      <QtMocHeader_MocHeader_Cond Include="@(LinesFromReadFile)" Condition="$([System.String]::new('%(Identity)').Contains('Q_OBJECT')) or $([System.String]::new('%(Identity)').Contains('Q_GADGET'))" />
+      <QtMocHeader_MocHeader_Cond Include="@(LinesFromReadFile)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)', '\bQ_OBJECT(?!_FAKE)\b')) or $([System.String]::new('%(Identity)').Contains('Q_GADGET'))" />
 
       <QtMocHeader_Checked Include="%(ClInclude.Identity)">
         <Checked Condition="'@(LinesFromReadFile)' != ''">true</Checked>
