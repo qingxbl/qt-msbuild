@@ -58,6 +58,19 @@ def _handle_remove_range(filelines, exp):
         return with_detail(i, line)[0]
     return func
 
+def _handle_once(target_func):
+    used = [False]
+
+    def func(i, line):
+        if used[0]:
+            return 0
+
+        skip = target_func(i, line)
+        used[0] = skip != 0
+        return skip
+
+    return func
+
 def _moc_fix_header(ret, filelines):
     rangeChecker = _handle_remove_range_with_detail(filelines, r'^(?P<indent>\s+)<(?P<mark>CustomBuild) Include="(?P<file>.+)">$')
     mocCustomBuildForMoc = re.compile(r'^(\s+)<AdditionalInputs Condition=".+">.*\moc\.exe;.*</AdditionalInputs>$')
@@ -197,6 +210,20 @@ def _cure_vcxproj(filelines):
 
         _handle_by_regex(ret, r'^(\s*)<PlatformToolset>.*</PlatformToolset>$', ()),
         _handle_by_regex(ret, r'^(\s*)<GenerateManifest>.*</GenerateManifest>$', ()),
+        _handle_once(_handle_by_regex(ret, r'^(\s*)<ItemDefinitionGroup.*>$', (
+            '\\1<PropertyGroup Condition="\'$(DesignTimeBuild)\'==\'true\'">',
+            '\\1  <FixPreprocessorDefinitions Condition="\'$(PlatformToolset)\'==\'v90\'">_MSC_VER=1500;_MSC_FULL_VER=150030729;__cplusplus=199711;$(FixPreprocessorDefinitions)</FixPreprocessorDefinitions>',
+            '\\1</PropertyGroup>',
+            '\\1<ItemDefinitionGroup Condition="\'$(FixPreprocessorDefinitions)\'!=\'\'">',
+            '\\1  <ClCompile>',
+            '\\1    <PreprocessorDefinitions>$(FixPreprocessorDefinitions)%(PreprocessorDefinitions)</PreprocessorDefinitions>',
+            '\\1  </ClCompile>',
+            '\\1  <ResourceCompile>',
+            '\\1    <PreprocessorDefinitions>$(FixPreprocessorDefinitions)%(PreprocessorDefinitions)</PreprocessorDefinitions>',
+            '\\1  </ResourceCompile>',
+            '\\1</ItemDefinitionGroup>',
+            '\\g<0>'
+        ))),
     )
 
     qt_handler = (
