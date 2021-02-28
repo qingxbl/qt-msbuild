@@ -64,6 +64,7 @@
   <ItemGroup>
     <ClCompile Include="$(QtMocSingleFileName)">
       <ExcludedFromBuild Condition="'$(QtMocSingleFileMode)' != 'true'">true</ExcludedFromBuild>
+      <QtGeneratedFile>true</QtGeneratedFile>
       <QtMocTemplateMask>true</QtMocTemplateMask>
     </ClCompile>
   </ItemGroup>
@@ -141,7 +142,9 @@
           DependsOnTargets="_QtQrcIncludeTask;MakeDirsForQtQrcTask"
           Inputs="@(QtQrc->'%(Identity)');@(QtQrcInclude)" Outputs="%(QtQrc.GeneratedFile)">
     <ItemGroup>
-      <ClCompile Include="%(QtQrc.GeneratedFile)" />
+      <ClCompile Include="%(QtQrc.GeneratedFile)">
+        <QtGeneratedFile>true</QtGeneratedFile>
+      </ClCompile>
     </ItemGroup>
     <Message Importance="high" Text="QRC $([System.IO.Path]::GetFileName(%(QtQrc.GeneratedFile)))" />
     <Exec Command="$(QTDIR)\bin\rcc.exe @(QtQrc->'&quot;%(Identity)&quot;', ' ') -o &quot;%(QtQrc.GeneratedFile)&quot;"/>
