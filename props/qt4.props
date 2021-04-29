@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <QTDIR>D:\Work\Qt\myenv-vc9-x86</QTDIR>
+    <QTDIR Condition="'$(QTDIR)' == ''">D:\Work\Qt\myenv-vc9-x86</QTDIR>
     <RelativeQTDIR>$([MSBuild]::MakeRelative($(ProjectDir), $(QTDIR)))</RelativeQTDIR>
     <QtLib Condition="'$(QtLib)' == ''">Core</QtLib>
     <QtIntDir Condition="'$(QtIntDir)' == ''">$(IntDir)gen\</QtIntDir>

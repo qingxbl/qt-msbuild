@@ -3,7 +3,9 @@
   <PropertyGroup>
     <QtLibSuffix Condition="'$(Configuration)'=='Debug'">d</QtLibSuffix>
     <QtLibAdditionalIncludeDirectories>$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(\w+)(;|%24)', '$(RelativeQTDIR)\include\Qt%241;').Split(';'))</QtLibAdditionalIncludeDirectories>
-    <QtLibAdditionalIncludeDirectories Condition="'$(QtUsePrivate)'=='true' or '$(QtBootstrap)'=='true'">$(QtLibAdditionalIncludeDirectories);$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(\w+)(;|%24)', '$(RelativeQTDIR)\include\Qt%241\private;').Split(';'))</QtLibAdditionalIncludeDirectories>
+    <QtLibPrivateAdditionalIncludeDirectories Condition="'$(QtUsePrivate)'=='true' or '$(QtBootstrap)'=='true'">$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(\w+)(;|%24)', '$(RelativeQTDIR)\include\Qt%241\private;').Split(';'))</QtLibPrivateAdditionalIncludeDirectories>
+    <QtLibAdditionalIncludeDirectories>$(RelativeQTDIR)\include;$(QtLibAdditionalIncludeDirectories)</QtLibAdditionalIncludeDirectories>
+    <QtLibAdditionalIncludeDirectories Condition="'$(QtLibPrivateAdditionalIncludeDirectories)' != ''">$(QtLibAdditionalIncludeDirectories);$(QtLibPrivateAdditionalIncludeDirectories)</QtLibAdditionalIncludeDirectories>
     <QtLibPreprocessorDefinitions>$([System.Text.RegularExpressions.Regex]::Replace($(QtLib.toUpper()), '(\w+)(;|%24)', 'QT_%241_LIB;').Split(';'))</QtLibPreprocessorDefinitions>
   </PropertyGroup>
 
@@ -47,12 +49,12 @@
 
   <ItemDefinitionGroup>
     <ClCompile>
-      <!--<AdditionalIncludeDirectories>$(QtLibAdditionalIncludeDirectories);$(QtIntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>-->
+      <AdditionalIncludeDirectories>$(QtLibAdditionalIncludeDirectories);$(QtIntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories>$(QtIntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>$(QtLibPreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <!--<AdditionalDependencies>$(QtLibAdditionalDependencies);%(AdditionalDependencies)</AdditionalDependencies>-->
+      <AdditionalDependencies>$(QtLibAdditionalDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <QtLib>
       <Library>Qt%(Identity)$(QtLibSuffix)4.dll</Library>
