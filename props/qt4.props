@@ -20,6 +20,7 @@
     <RelativeQTDIR>$([MSBuild]::MakeRelative($(ProjectDir), $(QTDIR)))</RelativeQTDIR>
     <QtLib Condition="'$(QtLib)' == ''">Core</QtLib>
     <QtIntDir Condition="'$(QtIntDir)' == ''">$(IntDir)gen\</QtIntDir>
+    <QtMocChecker Condition="'$(QtMocChecker)' == ''">\b(Q_OBJECT(?!_FAKE)|Q_GADGET)\b</QtMocChecker>
     <QtMocSingleFileMode Condition="'$(QtMocSingleFileMode)' != 'false'">true</QtMocSingleFileMode>
     <QtMocSingleFileName Condition="'$(QtMocSingleFileName)' == ''">$(QtIntDir)mocall_$(ProjectName)$(DefaultLanguageSourceExtension)</QtMocSingleFileName>
     <QtMocRunParallel Condition="'$(QtMocRunParallel)' == ''">true</QtMocRunParallel>
