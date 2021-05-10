@@ -59,8 +59,8 @@
 
     <StringProperty
       Subtype="file"
-      Name="OutputFile"
-      DisplayName="Output file"
+      Name="GeneratedFile"
+      DisplayName="Generated file"
       Description="Write output to file  (-o file)"
       Category="General"
       Switch="-o &quot;[value]&quot;" />
@@ -138,11 +138,22 @@
     </Rule.DataSource>
 
     <StringProperty
+          Name="Inputs"
+          Category="Command Line"
+          IsRequired="true">
+      <StringProperty.DataSource>
+        <DataSource
+          Persistence="ProjectFile"
+          ItemType="QtMoc"
+          SourceType="Item" />
+      </StringProperty.DataSource>
+    </StringProperty>
+    <StringProperty
       Subtype="file"
-      Name="OutputFile"
-      DisplayName="Output file"
+      Name="GeneratedFile"
+      DisplayName="Generated file"
       Description="Write output to file  (-o file)"
-      Category="General"
+      Category="Output File"
       Switch="-o &quot;[value]&quot;" />
     <StringListProperty
       Name="IncludePaths"
@@ -158,12 +169,12 @@
       Name="PreprocessorDefinitions"
       DisplayName="Preprocessor Definitions"
       Description="define macro, with optional definition (-D[macro][=def])"
-      Switch="-D&quot;[value]&quot;" />
+      Switch="-D[value]" />
     <StringListProperty
       Name="UndefinePreprocessorDefinitions"
       DisplayName="Undefine Preprocessor Definitions"
       Description="undefine macro (-U[macro])"
-      Switch="-U&quot;[value]&quot;" />
+      Switch="-U[value]" />
     <BoolProperty
       Name="NoIncludeStatement"
       DisplayName="No Include Statement"

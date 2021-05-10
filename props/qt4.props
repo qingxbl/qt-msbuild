@@ -21,20 +21,20 @@
     <QtLib Condition="'$(QtLib)' == ''">Core</QtLib>
     <QtIntDir Condition="'$(QtIntDir)' == ''">$(IntDir)gen\</QtIntDir>
     <QtMocChecker Condition="'$(QtMocChecker)' == ''">\b(Q_OBJECT(?!_FAKE)|Q_GADGET)\b</QtMocChecker>
-    <QtMocSingleFileMode Condition="'$(QtMocSingleFileMode)' != 'false'">true</QtMocSingleFileMode>
+    <QtMocSingleFileMode Condition="'$(QtMocSingleFileMode)' == ''">true</QtMocSingleFileMode>
     <QtMocSingleFileName Condition="'$(QtMocSingleFileName)' == ''">$(QtIntDir)mocall_$(ProjectName)$(DefaultLanguageSourceExtension)</QtMocSingleFileName>
     <QtMocRunParallel Condition="'$(QtMocRunParallel)' == ''">true</QtMocRunParallel>
-    <QtMocFile_Rsp_Name>$(QtIntDir)$(ProjectName)_moc.proj</QtMocFile_Rsp_Name>
-    <QtQrcIncludeFileName Condition="'$(QtQrcIncludeFileName)' == ''">qrc_include_$(ProjectName).qrc</QtQrcIncludeFileName>
+    <QtCacheFileName>$(QtIntDir)$(ProjectName)_qtcache.props</QtCacheFileName>
+    <QtQrcIncludeFileName Condition="'$(QtQrcIncludeFileName)' == ''">qrcinclude_$(ProjectName).qrc</QtQrcIncludeFileName>
   </PropertyGroup>
 
   <ItemDefinitionGroup>
     <QtUic>
-      <GeneratedFile Condition="'%(GeneratedFile)' == ''">$(IntDir)gen\ui_%(Filename).h</GeneratedFile>
+      <GeneratedFile>$(QtIntDir)ui_%(Filename).h</GeneratedFile>
     </QtUic>
 
     <QtQrc>
-      <GeneratedFile Condition="'%(GeneratedFile)' == ''">$(IntDir)gen\qrc_$(ProjectName)$(DefaultLanguageSourceExtension)</GeneratedFile>
+      <GeneratedFile>$(QtIntDir)qrc_%(Filename)$(DefaultLanguageSourceExtension)</GeneratedFile>
     </QtQrc>
 
     <QtQrcInclude>
@@ -61,5 +61,4 @@
       <AdditionalLibraryDirectories>$(RelativeQTDIR)\lib\$(OutDirConf);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
-
 </Project>
