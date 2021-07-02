@@ -14,8 +14,8 @@ toolset = 'v90'
 end_project = '</Project>'
 
 def _getProjects(qmake_out):
+    seen = set(os.getcwdu())
     yield os.getcwdu()
-    seen = set()
 
     re1 = re.compile(r'^ *Reading (.*)\/.*\.pro%s?$' % '\r')
     re2 = re.compile(r'^ *Reading .*\/.*\.pro \[(.*)\]%s?$' % '\r')
