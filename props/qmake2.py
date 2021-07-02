@@ -8,7 +8,7 @@ import os
 import sys
 import codecs
 import string
-import itertools
+import uuid
 
 toolset = 'v90'
 end_project = '</Project>'
@@ -246,10 +246,13 @@ def _is_qt_enabled(filelines):
 
     return (enabledLibs, replaceDict)
 
-def _cure_vcxproj(filelines):
-    def append_line(_, line):
-        return (1, (line,))
+def append_line(_, line):
+    return (1, (line,))
 
+def eat_line(_, line):
+    return (1, ())
+
+def _cure_vcxproj(filelines):
     base_handler = (
         _handle_by_regex(r'^(\s*)<PropertyGroup Label="Globals">$', ('\\g<0>', '\\1  <PlatformToolset>%s</PlatformToolset>' % toolset)),
         _handle_by_regex(r'^(\s*)<ConfigurationType>DynamicLibrary</ConfigurationType>$', ('\\g<0>', '\\1<GenerateManifest>false</GenerateManifest>')),
@@ -316,23 +319,136 @@ def _cure_vcxproj_filters(filelines):
     return filelines
 
 def _cure_sln(filelines):
-    projs = {'.': [], '..': 0}
+    projs = {}
 
-    regexpProject = re.compile(r'Project\("(?P<project_guid>{[0-9A-F-]+})"\) = "(?P<project_name>[^"]+)", "(?P<project_path>[^"]+)", "(?P<node_guid>{[0-9A-F-]+})"')
+    current_handler = [None]
 
+    def global_wrap_handler(second_handler, custom_end_line_handler = append_line):
+        def func(i, line):
+            if line.endswith('EndGlobalSection'):
+                current_handler[0] = global_handler
+                return custom_end_line_handler(i, line)
+            return second_handler(i, line)
+
+        return func
+
+    def global_remove_handler(i, line):
+        current_handler[0] = global_wrap_handler(eat_line, eat_line)
+
+        return eat_line(i, line)
+
+    def global_SolutionConfiguration_preSolution_handler(i, line):
+        h = _handle_by_regex(r'^(\s+)(.+) = (.+)$', ('\\1\\3 = \\3',))
+        def func(i, line):
+            return h(i, line.replace('Win32', 'x86'))
+
+        current_handler[0] = global_wrap_handler(func)
+
+        return (1, ('\tGlobalSection(SolutionConfigurationPlatforms) = preSolution',))
+
+    def global_ProjectDependencies_postSolution_handler(i, line):
+        regexp = re.compile(r'^(\s*)({[0-9A-F-]+})\.\d+ = ({[0-9A-F-]+})$')
+        def func(i, line):
+            match = regexp.match(line)
+            if match:
+                proj = projs.get(match.group(2))
+                dep = projs.get(match.group(3))
+                if proj and dep:
+                    proj['project_dependencies'].append(dep)
+
+            return eat_line(i, line)
+
+        current_handler[0] = global_wrap_handler(func, eat_line)
+
+        return eat_line(i, line)
+
+    def global_ProjectConfiguration_postSolution_handler(i, line):
+        def func(i, line):
+            return (1, (line.replace('Win32', 'x86'),))
+
+        current_handler[0] = global_wrap_handler(func)
+        return (1, ('\tGlobalSection(ProjectConfigurationPlatforms) = postSolution',))
+
+    def global_end_handler(i, line):
+        return (1, (
+            '\tGlobalSection(SolutionProperties) = preSolution',
+            '\t\tHideSolutionNode = FALSE',
+            '\tEndGlobalSection',
+            '\tGlobalSection(ExtensibilityGlobals) = postSolution',
+            '\t\tSolutionGuid = {' + str(uuid.uuid4()).upper() + '}',
+            '\tEndGlobalSection',
+            line,))
+
+    def global_handler(i, line):
+        handlers = {
+            '\tGlobalSection(SolutionConfiguration) = preSolution': global_SolutionConfiguration_preSolution_handler,
+            '\tGlobalSection(ProjectDependencies) = postSolution': global_ProjectDependencies_postSolution_handler,
+            '\tGlobalSection(ProjectConfiguration) = postSolution': global_ProjectConfiguration_postSolution_handler,
+            '\tGlobalSection(ExtensibilityGlobals) = postSolution': global_remove_handler,
+            '\tGlobalSection(ExtensibilityAddIns) = postSolution': global_remove_handler,
+            'EndGlobal': global_end_handler,
+        }
+        return handlers.get(line, append_line)(i, line)
+
+    def generate_projects():
+        def generate_project_depends(p):
+            deps = map(lambda x: '\t\t{project_guid} = {project_guid}'.format(**x), p['project_dependencies'])
+            return (['\tProjectSection(ProjectDependencies) = postProject'] + deps + ['\tEndProjectSection']) if deps else []
+
+        def genreate_project(p):
+            return ['Project("{project_type}") = "{project_name}", "{project_path}", "{project_guid}"'.format(**p)] + generate_project_depends(p) + ['EndProject']
+
+        return tuple(reduce(list.__add__, map(genreate_project, projs.values())))
+
+
+    def generate_project_handler():
+        regexpProject = re.compile(r'Project\("(?P<project_type>{[0-9A-F-]+})"\) = "(?P<project_name>[^"]+)", "(?P<project_path>[^"]+)", "(?P<project_guid>{[0-9A-F-]+})"')
+        begin_project = [False]
+
+        def func(i, line):
+            match = regexpProject.match(filelines[i])
+            if match:
+                projDict = match.groupdict()
+                projDict['project_path'] = projDict['project_path'].replace('/', '\\')
+                projDict['project_dependencies'] = []
+                if projDict['project_type'] == u'{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}':
+                    projs[projDict['project_guid']] = projDict
+
+                is_begin_project = begin_project[0]
+                begin_project[0] = True
+
+                return (2, () if is_begin_project else generate_projects)
+
+            if line == 'Global':
+                current_handler[0] = global_handler
+
+            return append_line(i, line) 
+
+        return func
+
+    def header_handler(i, line):
+        current_handler[0] = generate_project_handler()
+
+        return (2, ('Microsoft Visual Studio Solution File, Format Version 12.00', '# Visual Studio Version 16'))
+
+    current_handler[0] = header_handler
+
+    ret = []
+    skip = 0
     for i in xrange(0, len(filelines)):
-        match = regexpProject.match(filelines[i])
-        if match:
-            projDict = match.groupdict()
-            curLevel = projs
-            for p in projDict['project_path'].split('\\')[:-1]:
-                curLevel['..'] += 1
-                curLevel.setdefault(p, {'.': [], '..': 0})
-                curLevel = curLevel[p]
-            curLevel['..'] += 1
-            curLevel['.'].append(projDict)
+        if skip == 0:
+            skip, lines = current_handler[0](i, filelines[i])
+            ret += lines if not callable(lines) else (lines,)
 
-    return ['Microsoft Visual Studio Solution File, Format Version 12.00', '# Visual Studio Version 16'] + [line for line in filelines][2:]
+        skip = skip - 1
+
+    ret2 = []
+    for i in xrange(0, len(ret)):
+        ret2 += ret[i]() if callable(ret[i]) else (ret[i],)
+
+    return ret2
+
+    #return ['Microsoft Visual Studio Solution File, Format Version 12.00', '# Visual Studio Version 16'] + [line for line in filelines][2:]
 
 def _cure_path(path):
     doctors = (
