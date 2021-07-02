@@ -14,8 +14,9 @@ toolset = 'v90'
 end_project = '</Project>'
 
 def _getProjects(qmake_out):
-    yield os.getcwdu()
-    seen = set()
+    cwd = os.path.normcase(os.path.normpath(os.getcwd()))
+    seen = set([cwd])
+    yield cwd
 
     re1 = re.compile(r'^ *Reading (.*)\/.*\.pro%s?$' % '\r')
     re2 = re.compile(r'^ *Reading .*\/.*\.pro \[(.*)\]%s?$' % '\r')
@@ -25,7 +26,7 @@ def _getProjects(qmake_out):
             ma = re2.search(line)
 
         if ma:
-            normalized = os.path.normcase(ma.group(1))
+            normalized = os.path.normcase(os.path.normpath(ma.group(1)))
             if normalized not in seen:
                 seen.add(normalized)
                 yield normalized
