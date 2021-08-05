@@ -257,7 +257,7 @@ def _cure_vcxproj(filelines):
     base_handler = (
         _handle_by_regex(r'^(\s*)<PropertyGroup Label="Globals">$', ('\\g<0>', '\\1  <PlatformToolset>%s</PlatformToolset>' % toolset)),
         _handle_by_regex(r'^(\s*)<ConfigurationType>DynamicLibrary</ConfigurationType>$', ('\\g<0>', '\\1<GenerateManifest>false</GenerateManifest>')),
-        _handle_by_regex(r'^(\s*)<(ResourceOutputFileName)>\S+\/\$\(InputName\)(.res<\/\2>)$', ('\\1<\\2>$(OutDir)%(Filename)\\3',)),
+        _handle_by_regex(r'^(\s*)<(ResourceOutputFileName)>\S+\/\$\(InputName\)(.res<\/\2>)$', ('\\1<\\2>$(OutDir)$(ProjectName)\\3',)),
 
         _handle_by_regex(r'^(\s*)<PlatformToolset>.*</PlatformToolset>$', ()),
         _handle_by_regex(r'^(\s*)<GenerateManifest>.*</GenerateManifest>$', ()),
