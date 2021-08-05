@@ -338,12 +338,16 @@ def _cure_sln(filelines):
 
         return eat_line(i, line)
 
+    def replace_win32_to_x86(second_handler):
+        def func(i, line):
+            return second_handler(i, line.replace('Win32', 'x86'))
+
+        return func
+
     def global_SolutionConfiguration_preSolution_handler(i, line):
         h = _handle_by_regex(r'^(\s+)(.+) = (.+)$', ('\\1\\3 = \\3',))
-        def func(i, line):
-            return h(i, line.replace('Win32', 'x86'))
 
-        current_handler[0] = global_wrap_handler(func)
+        current_handler[0] = global_wrap_handler(h)
 
         return (1, ('\tGlobalSection(SolutionConfigurationPlatforms) = preSolution',))
 
@@ -364,10 +368,7 @@ def _cure_sln(filelines):
         return eat_line(i, line)
 
     def global_ProjectConfiguration_postSolution_handler(i, line):
-        def func(i, line):
-            return (1, (line.replace('Win32', 'x86'),))
-
-        current_handler[0] = global_wrap_handler(func)
+        current_handler[0] = global_wrap_handler(append_line)
         return (1, ('\tGlobalSection(ProjectConfigurationPlatforms) = postSolution',))
 
     def global_end_handler(i, line):
