@@ -63,7 +63,6 @@
   <ItemDefinitionGroup Condition="'$(SeparateWorker)' != 'true'">
     <ClCompile>
       <AdditionalIncludeDirectories>$(QtLibAdditionalIncludeDirectories);$(QtIntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories>$(QtIntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>$(QtLibPreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
