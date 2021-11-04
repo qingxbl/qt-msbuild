@@ -49,6 +49,7 @@
       <QtMocFileName Condition="'%(QtMocFileName)' == ''">$(IntDir)gen\%(Filename).moc</QtMocFileName>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">QT_NO_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions>QT_HAVE_MMX;QT_HAVE_SSE;QT_HAVE_MMXEXT;QT_HAVE_SSE2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(RelativeQTDIR)\mkspecs\win32-msvc2010;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
 
     <ClInclude>

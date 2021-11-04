@@ -9,9 +9,24 @@ import sys
 import codecs
 import string
 import uuid
+import signal
+import tempfile
+import shutil
 
-toolset = 'v90'
 end_project = '</Project>'
+
+class GlobalInfo:
+    major = 0
+    minor = 0
+    patch = 0
+    path = ""
+    path_re = ""
+    temp_mkspec = ""
+    platformToolset = ""
+    MSC_VER = 0
+    MSC_FULL_VER = 0
+
+globalInfo = GlobalInfo()
 
 def _getProjects(qmake_out):
     cwd = os.path.normcase(os.path.normpath(os.getcwd()))
@@ -34,8 +49,8 @@ def _getProjects(qmake_out):
 def _cleanup(lines):
     return [line.rstrip() for line in lines]
 
-def _loadFile(path, modifier):
-    return modifier(map(string.rstrip, codecs.open(path, 'r', 'gbk')))
+def _loadFile(path, modifier, out):
+    return modifier(map(string.rstrip, codecs.open(path, 'r', 'gbk')), path, out)
 
 def _saveFile(path, content):
     with codecs.open(path, 'w', 'utf-8') as f:
@@ -116,6 +131,18 @@ def _execute_handler(i, line, handlers):
                 break;
 
     return (skip, retLines) if skip != 0 or len(retLines) > 0 else None
+
+def _execute_handler_alllines(filelines, handlers):
+    ret = []
+    skip = 0
+    for i in xrange(0, len(filelines)):
+        if skip == 0:
+            skip, lines = _execute_handler(i, filelines[i], handlers)
+            ret += lines
+
+        skip = skip - 1
+
+    return ret
 
 def _handle_custom_build(filelines):
     moreHandler = []
@@ -218,19 +245,21 @@ def _is_qt_enabled(filelines):
     replaceDict = {}
     enabledLibs = []
 
-    qtRe = re.compile(r'^"?%s[\\/]?(.*?)"?$' % qt_info["path_re"])
+    qtRe = re.compile(r'^"?%s[\\/]?(.*?)"?$' % globalInfo.path_re)
     qtLibRe = re.compile(r'^include[\\/]Qt(\w+)$')
 
     def filterQt(includeDir):
         match = qtRe.match(includeDir)
-        if not match:
-            return True
+        if match:
+            match2 = qtLibRe.match(match.group(1))
+            if match2:
+                enabledLibs.append(match2.group(1))
 
-        match2 = qtLibRe.match(match.group(1))
-        if match2:
-            enabledLibs.append(match2.group(1))
+            return False
+        elif includeDir == globalInfo.temp_mkspec:
+            return False
 
-        return False
+        return True
 
     compiled = re.compile(r'^(\s*<AdditionalIncludeDirectories>)(.*)(</AdditionalIncludeDirectories>)$')
     for l in filter(None, (compiled.match(l) for l in filelines)):
@@ -253,9 +282,11 @@ def append_line(_, line):
 def eat_line(_, line):
     return (1, ())
 
-def _cure_vcxproj(filelines):
+def _cure_vcxproj(filelines, path, out):
+    enabledLibs, replaceDict = _is_qt_enabled(filelines)
+
     base_handler = (
-        _handle_by_regex(r'^(\s*)<PropertyGroup Label="Globals">$', ('\\g<0>', '\\1  <PlatformToolset>%s</PlatformToolset>' % toolset)),
+        _handle_by_regex(r'^(\s*)<PropertyGroup Label="Globals">$', ('\\g<0>', '\\1  <PlatformToolset>%s</PlatformToolset>' % globalInfo.platformToolset)),
         _handle_by_regex(r'^(\s*)<ConfigurationType>DynamicLibrary</ConfigurationType>$', ('\\g<0>', '\\1<GenerateManifest>false</GenerateManifest>')),
         _handle_by_regex(r'^(\s*)<(ResourceOutputFileName)>\S+\/\$\(InputName\)(.res<\/\2>)$', ('\\1<\\2>$(OutDir)$(ProjectName)\\3',)),
 
@@ -263,7 +294,7 @@ def _cure_vcxproj(filelines):
         _handle_by_regex(r'^(\s*)<GenerateManifest>.*</GenerateManifest>$', ()),
         _handle_once(_handle_by_regex(r'^(\s*)<ItemDefinitionGroup.*>$', (
             '\\1<PropertyGroup Condition="\'$(DesignTimeBuild)\'==\'true\'">',
-            '\\1  <FixPreprocessorDefinitions Condition="\'$(PlatformToolset)\'==\'v90\'">_MSC_VER=1500;_MSC_FULL_VER=150030729;__cplusplus=199711;$(FixPreprocessorDefinitions)</FixPreprocessorDefinitions>',
+            '\\1  <FixPreprocessorDefinitions>_MSC_VER=%d;_MSC_FULL_VER=%d;%s$(FixPreprocessorDefinitions)</FixPreprocessorDefinitions>' % (globalInfo.MSC_VER, globalInfo.MSC_FULL_VER, "__cplusplus=199711L;" if globalInfo.MSC_VER < 1900 else ""),
             '\\1</PropertyGroup>',
             '\\1<ItemDefinitionGroup Condition="\'$(FixPreprocessorDefinitions)\'!=\'\'">',
             '\\1  <ClCompile>',
@@ -278,25 +309,26 @@ def _cure_vcxproj(filelines):
         _handle_custom_build(filelines),
         _handle_by_regex(r'^(\s*)<(\S+)(.*)>(.*)\$\(NOINHERIT\)(.*)</\2>$', ('\\1<\\2\\3>\\4\\5</\\2>',)),
         _handle_by_regex(r'^(\s*)<(\S+)(.*)>(.*)\$\(INHERIT\)(.*)</\2>$', ('\\1<\\2\\3>\\4%(\\2)\\5</\\2>',)),
+        _handle_by_dict(replaceDict),
     )
 
-    enabledLibs, replaceDict = _is_qt_enabled(filelines)
+    rel_to_this_path = os.path.relpath(os.path.dirname(__file__), os.path.dirname(out))
+
     qt_handler = (
         _handle_by_regex(r'^(\s*)<Import Project="\$\(VCTargetsPath\)\\Microsoft\.Cpp\.props" />$', (
             '\\1<PropertyGroup Label="Qt">',
-            '\\1  <QT_VERSION_MAJOR>%s</QT_VERSION_MAJOR>' % qt_info['major'],
-            '\\1  <QT_VERSION_MINOR>%s</QT_VERSION_MINOR>' % qt_info['minor'],
-            '\\1  <QT_VERSION_PATCH>%s</QT_VERSION_PATCH>' % qt_info['patch'],
-            '\\1  <QTDIR>%s</QTDIR>' % qt_info['path'],
+            '\\1  <QT_VERSION_MAJOR>%s</QT_VERSION_MAJOR>' % globalInfo.major,
+            '\\1  <QT_VERSION_MINOR>%s</QT_VERSION_MINOR>' % globalInfo.minor,
+            '\\1  <QT_VERSION_PATCH>%s</QT_VERSION_PATCH>' % globalInfo.patch,
+            '\\1  <QTDIR>%s</QTDIR>' % globalInfo.path.replace('\\', '\\\\'),
             '\\1  <QtLib>%s</QtLib>' % (';'.join(enabledLibs)),
             '\\1</PropertyGroup>',
         ), False),
-        _handle_by_dict(replaceDict),
-        _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionSettings" />$', ('\\1<ImportGroup Label="ExtensionSettings">', '\\1  <Import Project="$(SolutionDir)qt4.props" />', '\\1</ImportGroup>')),
-        _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionTargets" />$', ('\\1<ImportGroup Label="ExtensionTargets">', '\\1  <Import Project="$(SolutionDir)qt4.targets" />', '\\1</ImportGroup>')),
+        _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionSettings" />$', ('\\1<ImportGroup Label="ExtensionSettings">', '\\1  <Import Project="%s" />' % os.path.join(rel_to_this_path, "qt4.props").replace('\\', '\\\\'), '\\1</ImportGroup>')),
+        _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionTargets" />$', ('\\1<ImportGroup Label="ExtensionTargets">', '\\1  <Import Project="%s" />' % os.path.join(rel_to_this_path, "qt4.targets").replace('\\', '\\\\'), '\\1</ImportGroup>')),
         _handle_repeat(_handle_by_regex(r'^(\s*<PreprocessorDefinitions)(>|.*?;)(QT_[A-Z]+_LIB;|QT_DLL;|QT_NO_DEBUG;)+(.*</PreprocessorDefinitions>)$', ('\\1\\2\\4',))),
-        _handle_repeat(_handle_by_regex(r'^(\s*<AdditionalDependencies)(>|.*?;)(%s[\\/]lib[\\/]Qt\w+\.lib;)+(.*</AdditionalDependencies>)$' % qt_info["path_re"], ('\\1\\2\\4',))),
-        _handle_by_regex(r'^(\s*<AdditionalLibraryDirectories)(>|.*?;)(%s[\\/]lib;)+(.*</AdditionalLibraryDirectories>)$' % qt_info["path_re"], ('\\1\\2\\4',)),
+        _handle_repeat(_handle_by_regex(r'^(\s*<AdditionalDependencies)(>|.*?;)(%s[\\/]lib[\\/]Qt\w+\.lib;)+(.*</AdditionalDependencies>)$' % globalInfo.path_re, ('\\1\\2\\4',))),
+        _handle_by_regex(r'^(\s*<AdditionalLibraryDirectories)(>|.*?;)(%s[\\/]lib;)+(.*</AdditionalLibraryDirectories>)$' % globalInfo.path_re, ('\\1\\2\\4',)),
 
         _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>ClCompile) Include="(?P<file>.+\\qrc_.+.cpp)">$'),
         _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>ClCompile) Include="(?P<file>.+\\moc_.+.cpp)">$'),
@@ -305,21 +337,12 @@ def _cure_vcxproj(filelines):
 
     handlers = base_handler + qt_handler + (append_line, )
 
-    ret = []
-    skip = 0
-    for i in xrange(0, len(filelines)):
-        if skip == 0:
-            skip, lines = _execute_handler(i, filelines[i], handlers)
-            ret += lines
+    return _execute_handler_alllines(filelines, handlers)
 
-        skip = skip - 1
-
-    return ret
-
-def _cure_vcxproj_filters(filelines):
+def _cure_vcxproj_filters(filelines, path, out):
     return filelines
 
-def _cure_sln(filelines):
+def _cure_sln(filelines, path, out):
     projs = {}
 
     current_handler = [None]
@@ -338,16 +361,13 @@ def _cure_sln(filelines):
 
         return eat_line(i, line)
 
-    def replace_win32_to_x86(second_handler):
-        def func(i, line):
-            return second_handler(i, line.replace('Win32', 'x86'))
-
-        return func
-
     def global_SolutionConfiguration_preSolution_handler(i, line):
         h = _handle_by_regex(r'^(\s+)(.+) = (.+)$', ('\\1\\3 = \\3',))
+        def func(i, line):
+            return h(i, line)
+            #return h(i, line.replace('Win32', 'x86'))
 
-        current_handler[0] = global_wrap_handler(h)
+        current_handler[0] = global_wrap_handler(func)
 
         return (1, ('\tGlobalSection(SolutionConfigurationPlatforms) = preSolution',))
 
@@ -368,7 +388,11 @@ def _cure_sln(filelines):
         return eat_line(i, line)
 
     def global_ProjectConfiguration_postSolution_handler(i, line):
-        current_handler[0] = global_wrap_handler(append_line)
+        def func(i, line):
+            return (1, (line.replace('Win32', 'x86'),))
+            return (1, (line,))
+
+        current_handler[0] = global_wrap_handler(func)
         return (1, ('\tGlobalSection(ProjectConfigurationPlatforms) = postSolution',))
 
     def global_end_handler(i, line):
@@ -452,7 +476,18 @@ def _cure_sln(filelines):
 
     #return ['Microsoft Visual Studio Solution File, Format Version 12.00', '# Visual Studio Version 16'] + [line for line in filelines][2:]
 
-def _cure_path(path):
+def _cure_qmake_conf(filelines, path, out):
+    handlers = (
+        _handle_by_regex(r'^(QMAKE_COMPILER_DEFINES\s*\+=.*\s_MSC_VER\s*=\s*)\d+(.*)$', ('\\g<1>%d\\2' % globalInfo.MSC_VER,)),
+        append_line,
+    )
+
+    return _execute_handler_alllines(filelines, handlers)
+
+def _cure_path(path, doctor, out = None):
+    _saveFile(out or path, _loadFile(path, doctor, out or path))
+
+def _cure_projects(path):
     doctors = (
         ('.vcxproj', _cure_vcxproj),
         ('.vcxproj.filters', _cure_vcxproj_filters),
@@ -464,11 +499,11 @@ def _cure_path(path):
                 if f.endswith(s):
                     fp = os.path.join(root, f)
                     print 'Curing ' + fp
-                    _saveFile(fp, _loadFile(fp, p))
+                    _cure_path(fp, p)
                     break
         break
 
-def _qt_info():
+def _prepare_env():
     process = subprocess.Popen(['qmake', '-v'],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT)
@@ -476,24 +511,62 @@ def _qt_info():
     match = re.compile(r'^Using Qt version (?P<major>\d+).(?P<minor>\d+).(?P<patch>\d+) in (?P<path>.*?)([/\\]lib)?$').match(process.communicate()[0].splitlines(False)[1])
     if match:
         print match.group(0)
-        qt_info = match.groupdict()
-        qt_info["path_re"] = "[%s%s]%s" % (qt_info['path'][0].lower(), qt_info['path'][0].upper(), qt_info['path'][1:].replace('\\', '/').replace('/', r"[/\\]"))
-        return qt_info
+        for k, v in match.groupdict().iteritems():
+            setattr(globalInfo, k, v)
+
+        globalInfo.path_re = "[%s%s]%s" % (globalInfo.path[0].lower(), globalInfo.path[0].upper(), globalInfo.path[1:].replace('\\', '/').replace('/', r"[/\\]"))
     else:
         raise Exception('Can\'t detect Qt version')
 
+    platform, msvc = os.environ["QMAKESPEC"].split('-')
+    if msvc.startswith('msvc'):
+        msvc = msvc[4:]
+
+    if not (platform == 'win64' or platform == 'win32') or not msvc.isdigit():
+        raise Exception('QMAKESPEC must start be win32-msvcXXXX or win64-msvcXXXX')
+
+    msvc_vers = {
+        "2008": { "platformToolset": "v90", "MSC_VER": 1500, "MSC_FULL_VER": 150021022 },
+        "2010": { "platformToolset": "v100", "MSC_VER": 1600, "MSC_FULL_VER": 160030319 },
+        "2012": { "platformToolset": "v110", "MSC_VER": 1700, "MSC_FULL_VER": 170050727 },
+        "2013": { "platformToolset": "v120", "MSC_VER": 1800, "MSC_FULL_VER": 180021005 },
+        "2015": { "platformToolset": "v140", "MSC_VER": 1900, "MSC_FULL_VER": 190023026 },
+        "2017": { "platformToolset": "v141", "MSC_VER": 1910, "MSC_FULL_VER": 191025017 },
+        "2019": { "platformToolset": "v142", "MSC_VER": 1920, "MSC_FULL_VER": 192027508 },
+
+        "2012_xp": { "platformToolset": "v110_xp", "MSC_VER": 1700, "MSC_FULL_VER": 170050727 },
+        "2013_xp": { "platformToolset": "v120_xp", "MSC_VER": 1800, "MSC_FULL_VER": 180021005 },
+        "2015_xp": { "platformToolset": "v140_xp", "MSC_VER": 1900, "MSC_FULL_VER": 190023026 },
+        "2017_xp": { "platformToolset": "v141_xp", "MSC_VER": 1910, "MSC_FULL_VER": 191025017 },
+    }
+
+    if not msvc in msvc_vers:
+        raise Exception('QMAKESPEC is not found')
+
+    for k, v in msvc_vers[msvc].iteritems():
+        setattr(globalInfo, k, v)
+
+    globalInfo.temp_mkspec = tempfile.mkdtemp()
+
+    _cure_path(os.path.join(globalInfo.path, "mkspecs", "win32-msvc2010", "qmake.conf"), _cure_qmake_conf, os.path.join(globalInfo.temp_mkspec, "qmake.conf"))
+    shutil.copyfile(os.path.join(globalInfo.path, "mkspecs", "win32-msvc2005", "qplatformdefs.h"), os.path.join(globalInfo.temp_mkspec, "qplatformdefs.h"))
+
+    return
+
+def _clear_env():
+    if globalInfo.temp_mkspec:
+        shutil.rmtree(globalInfo.temp_mkspec)
+
+def _signal_handler(sig, frame):
+    _clear_env()
+    sys.exit(0)
+
 def main():
-    global qt_info
-    qt_info = _qt_info()
+    signal.signal(signal.SIGINT, _signal_handler)
 
-    global toolset
-    subarg = 1
-    if len(sys.argv) > 1:
-        if sys.argv[1].startswith("--"):
-            toolset = sys.argv[1][2:]
-            subarg = 2
+    _prepare_env()
 
-    command_list = ['qmake', '-tp', 'vc', '-r', '-spec', 'win32-msvc2010'] + sys.argv[subarg:]
+    command_list = ['qmake', '-tp', 'vc', '-r', '-spec', globalInfo.temp_mkspec] + sys.argv[1:]
 
     print u'Running qmake @ ' + os.getcwdu()
     process = subprocess.Popen(
@@ -502,8 +575,9 @@ def main():
         stderr=subprocess.STDOUT)
 
     for proj in _getProjects(process.communicate()[0]):
-        _cure_path(proj)
+        _cure_projects(proj)
+
+    _clear_env()
 
 if __name__ == '__main__':
     main()
-
