@@ -28,6 +28,11 @@ class GlobalInfo:
 
 globalInfo = GlobalInfo()
 
+def _make_path_re(path):
+    return "[%s%s]%s" % (path[0].lower(), path[0].upper(), path[1:].replace('\\', '/').replace('/', r"[/\\]"))
+def _make_path_replace_target(path):
+    return path.replace('\\', '\\\\') 
+
 def _getProjects(qmake_out):
     cwd = os.path.normcase(os.path.normpath(os.getcwd()))
     seen = set([cwd])
@@ -316,12 +321,12 @@ def _cure_vcxproj(filelines, path, out):
             '\\1  <QT_VERSION_MAJOR>%s</QT_VERSION_MAJOR>' % globalInfo.major,
             '\\1  <QT_VERSION_MINOR>%s</QT_VERSION_MINOR>' % globalInfo.minor,
             '\\1  <QT_VERSION_PATCH>%s</QT_VERSION_PATCH>' % globalInfo.patch,
-            '\\1  <QTDIR>%s</QTDIR>' % globalInfo.path.replace('\\', '\\\\'),
+            '\\1  <QTDIR>%s</QTDIR>' % _make_path_replace_target(globalInfo.path),
             '\\1  <QtLib>%s</QtLib>' % (';'.join(enabledLibs)),
             '\\1</PropertyGroup>',
         ), False),
-        _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionSettings" />$', ('\\1<ImportGroup Label="ExtensionSettings">', '\\1  <Import Project="%s" />' % os.path.join(rel_to_this_path, "qt4.props").replace('\\', '\\\\'), '\\1</ImportGroup>')),
-        _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionTargets" />$', ('\\1<ImportGroup Label="ExtensionTargets">', '\\1  <Import Project="%s" />' % os.path.join(rel_to_this_path, "qt4.targets").replace('\\', '\\\\'), '\\1</ImportGroup>')),
+        _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionSettings" />$', ('\\1<ImportGroup Label="ExtensionSettings">', '\\1  <Import Project="%s" />' % _make_path_replace_target(os.path.join(rel_to_this_path, "qt4.props")), '\\1</ImportGroup>')),
+        _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionTargets" />$', ('\\1<ImportGroup Label="ExtensionTargets">', '\\1  <Import Project="%s" />' % _make_path_replace_target(os.path.join(rel_to_this_path, "qt4.targets")), '\\1</ImportGroup>')),
         _handle_list(r'^\s*<PreprocessorDefinitions>(?P<list>.*)</PreprocessorDefinitions>$', (_handle_by_regex(r'QT_([A-Z]+_LIB|DLL|NO_DEBUG)', ()),)),
         _handle_list(r'^\s*<AdditionalDependencies>(?P<list>.*)</AdditionalDependencies>$', (_handle_by_regex(r'%s[\\/]lib[\\/]Qt\w+\.lib' % globalInfo.path_re, ()),)),
         _handle_by_regex(r'^(\s*<AdditionalLibraryDirectories)(>|.*?;)(%s[\\/]lib;)+(.*</AdditionalLibraryDirectories>)$' % globalInfo.path_re, ('\\1\\2\\4',)),
@@ -510,7 +515,7 @@ def _prepare_env():
         for k, v in match.groupdict().iteritems():
             setattr(globalInfo, k, v)
 
-        globalInfo.path_re = "[%s%s]%s" % (globalInfo.path[0].lower(), globalInfo.path[0].upper(), globalInfo.path[1:].replace('\\', '/').replace('/', r"[/\\]"))
+        globalInfo.path_re = _make_path_re(globalInfo.path)
     else:
         raise Exception('Can\'t detect Qt version')
 
