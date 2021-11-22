@@ -243,39 +243,10 @@ def _handle_custom_build(filelines):
     return func
 
 def _is_qt_enabled(filelines):
-    replaceDict = {}
-    enabledLibs = []
+    additionalIncludeDirectoriesRe = re.compile(r'^\s*<AdditionalIncludeDirectories>(.*)</AdditionalIncludeDirectories>$')
+    qtRe = re.compile(r'^("?)%s[\\/]include[\\/]Qt(\w+)\1$' % globalInfo.path_re)
 
-    qtRe = re.compile(r'^"?%s[\\/]?(.*?)"?$' % globalInfo.path_re)
-    qtLibRe = re.compile(r'^include[\\/]Qt(\w+)$')
-
-    def filterQt(includeDir):
-        match = qtRe.match(includeDir)
-        if match:
-            match2 = qtLibRe.match(match.group(1))
-            if match2:
-                enabledLibs.append(match2.group(1))
-
-            return False
-        elif includeDir == globalInfo.temp_mkspec:
-            return False
-
-        return True
-
-    compiled = re.compile(r'^(\s*<AdditionalIncludeDirectories>)(.*)(</AdditionalIncludeDirectories>)$')
-    for l in filter(None, (compiled.match(l) for l in filelines)):
-        if l.group(0) in replaceDict:
-            continue
-
-        includeDirs = l.group(2).split(';')
-        filteredIncludeDirs = filter(filterQt, includeDirs)
-
-        replaceDict[l.group(0)] = (1, (l.group(1) + ';'.join(filteredIncludeDirs) + l.group(3),)) if len(includeDirs) != len(filteredIncludeDirs) else None
-
-    replaceDict = {k: v for k, v in replaceDict.items() if v is not None}
-    enabledLibs = set(enabledLibs)
-
-    return (enabledLibs, replaceDict)
+    return map(lambda x: x.group(2), filter(None, (qtRe.match(x) for x in filter(None, (additionalIncludeDirectoriesRe.match(x) for x in filelines))[0].group(1).split(';'))))
 
 def append_line(_, line):
     return (1, (line,))
@@ -284,7 +255,9 @@ def eat_line(_, line):
     return (1, ())
 
 def _cure_vcxproj(filelines, path, out):
-    enabledLibs, replaceDict = _is_qt_enabled(filelines)
+    enabledLibs = _is_qt_enabled(filelines)
+
+    rel_to_this_path = os.path.relpath(os.path.dirname(__file__), os.path.dirname(out))
 
     base_handler = (
         _handle_by_regex(r'^(\s*)<PropertyGroup Label="Globals">$', ('\\g<0>', '\\1  <PlatformToolset>%s</PlatformToolset>' % globalInfo.platformToolset)),
@@ -310,10 +283,11 @@ def _cure_vcxproj(filelines, path, out):
         _handle_custom_build(filelines),
         _handle_by_regex(r'^(\s*)<(\S+)(.*)>(.*)\$\(NOINHERIT\)(.*)</\2>$', ('\\1<\\2\\3>\\4\\5</\\2>',)),
         _handle_by_regex(r'^(\s*)<(\S+)(.*)>(.*)\$\(INHERIT\)(.*)</\2>$', ('\\1<\\2\\3>\\4%(\\2)\\5</\\2>',)),
-        _handle_by_dict(replaceDict),
+        _handle_list(r'^\s*<AdditionalIncludeDirectories>(?P<list>.*)</AdditionalIncludeDirectories>$', (
+            _handle_by_regex(r'^("?)%s.*\1$' % globalInfo.path_re, ()),
+            _handle_by_regex(_make_path_re(globalInfo.temp_mkspec), ()),
+        )),
     )
-
-    rel_to_this_path = os.path.relpath(os.path.dirname(__file__), os.path.dirname(out))
 
     qt_handler = (
         _handle_by_regex(r'^(\s*)<Import Project="\$\(VCTargetsPath\)\\Microsoft\.Cpp\.props" />$', (
