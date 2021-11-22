@@ -285,7 +285,7 @@ def _cure_vcxproj(filelines, path, out):
         _handle_by_regex(r'^(\s*)<(\S+)(.*)>(.*)\$\(INHERIT\)(.*)</\2>$', ('\\1<\\2\\3>\\4%(\\2)\\5</\\2>',)),
         _handle_list(r'^\s*<AdditionalIncludeDirectories>(?P<list>.*)</AdditionalIncludeDirectories>$', (
             _handle_by_regex(r'^("?)%s.*\1$' % globalInfo.path_re, ()),
-            _handle_by_regex(_make_path_re(globalInfo.temp_mkspec), ()),
+            _handle_by_regex(_make_path_re(globalInfo.temp_mkspec), (_make_path_replace_target(os.path.join(os.path.dirname(rel_to_this_path), "backport", "v90")),) if globalInfo.platformToolset == "v90" else ()),
         )),
     )
 
