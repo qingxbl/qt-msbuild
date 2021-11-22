@@ -46,9 +46,6 @@ def _getProjects(qmake_out):
                 seen.add(normalized)
                 yield normalized
 
-def _cleanup(lines):
-    return [line.rstrip() for line in lines]
-
 def _loadFile(path, modifier, out):
     return modifier(map(string.rstrip, codecs.open(path, 'r', 'gbk')), path, out)
 
@@ -103,18 +100,17 @@ def _handle_once(target_func):
 
     return func
 
-def _handle_repeat(target_func):
-    def func(i, line):
-        result = None
-        while True:
-            cur_result = target_func(i, result[1][0] if result is not None else line)
-            if cur_result is not None:
-                cur_result = (cur_result[0], list(cur_result[1]))
+def _handle_list(list_exp, handlers, sep = ';'):
+    compiled = re.compile(list_exp)
 
-            if cur_result is None or (result is not None and result[1] == cur_result[1]):
-                return result
+    def func(_, line):
+        match = compiled.match(line)
+        old_list = match.group('list') if match else None
+        if not old_list:
+            return None
 
-            result = cur_result
+        new_list = _execute_handler_alllines(old_list.split(sep), handlers + (append_line,))
+        return (1, (line.replace(old_list, sep.join(new_list), 1),))
 
     return func
 
@@ -326,8 +322,8 @@ def _cure_vcxproj(filelines, path, out):
         ), False),
         _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionSettings" />$', ('\\1<ImportGroup Label="ExtensionSettings">', '\\1  <Import Project="%s" />' % os.path.join(rel_to_this_path, "qt4.props").replace('\\', '\\\\'), '\\1</ImportGroup>')),
         _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionTargets" />$', ('\\1<ImportGroup Label="ExtensionTargets">', '\\1  <Import Project="%s" />' % os.path.join(rel_to_this_path, "qt4.targets").replace('\\', '\\\\'), '\\1</ImportGroup>')),
-        _handle_repeat(_handle_by_regex(r'^(\s*<PreprocessorDefinitions)(>|.*?;)(QT_[A-Z]+_LIB;|QT_DLL;|QT_NO_DEBUG;)+(.*</PreprocessorDefinitions>)$', ('\\1\\2\\4',))),
-        _handle_repeat(_handle_by_regex(r'^(\s*<AdditionalDependencies)(>|.*?;)(%s[\\/]lib[\\/]Qt\w+\.lib;)+(.*</AdditionalDependencies>)$' % globalInfo.path_re, ('\\1\\2\\4',))),
+        _handle_list(r'^\s*<PreprocessorDefinitions>(?P<list>.*)</PreprocessorDefinitions>$', (_handle_by_regex(r'QT_([A-Z]+_LIB|DLL|NO_DEBUG)', ()),)),
+        _handle_list(r'^\s*<AdditionalDependencies>(?P<list>.*)</AdditionalDependencies>$', (_handle_by_regex(r'%s[\\/]lib[\\/]Qt\w+\.lib' % globalInfo.path_re, ()),)),
         _handle_by_regex(r'^(\s*<AdditionalLibraryDirectories)(>|.*?;)(%s[\\/]lib;)+(.*</AdditionalLibraryDirectories>)$' % globalInfo.path_re, ('\\1\\2\\4',)),
 
         _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>ClCompile) Include="(?P<file>.+\\qrc_.+.cpp)">$'),
