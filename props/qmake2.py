@@ -262,6 +262,7 @@ def _cure_vcxproj(filelines, path, out):
     base_handler = (
         _handle_by_regex(r'^(\s*)<PropertyGroup Label="Globals">$', ('\\g<0>', '\\1  <PlatformToolset>%s</PlatformToolset>' % globalInfo.platformToolset)),
         _handle_by_regex(r'^(\s*)<ConfigurationType>DynamicLibrary</ConfigurationType>$', ('\\g<0>', '\\1<GenerateManifest>false</GenerateManifest>')),
+        _handle_by_regex(r'^(\s*)<ConfigurationType>Application</ConfigurationType>$', ('\\g<0>', '\\1<GenerateManifest>true</GenerateManifest>')),
         _handle_by_regex(r'^(\s*)<(ResourceOutputFileName)>\S+\/\$\(InputName\)(.res<\/\2>)$', ('\\1<\\2>$(OutDir)$(ProjectName)\\3',)),
 
         _handle_by_regex(r'^(\s*)<PlatformToolset>.*</PlatformToolset>$', ()),
@@ -277,6 +278,16 @@ def _cure_vcxproj(filelines, path, out):
             '\\1  <ResourceCompile>',
             '\\1    <PreprocessorDefinitions>$(FixPreprocessorDefinitions)%(PreprocessorDefinitions)</PreprocessorDefinitions>',
             '\\1  </ResourceCompile>',
+            '\\1</ItemDefinitionGroup>',
+            '\\1<ItemDefinitionGroup Condition="\'$(ConfigurationType)\'==\'Application\'">',
+            '\\1  <Manifest>',
+            '\\1    <AdditionalManifestFiles>%s</AdditionalManifestFiles>' % _make_path_replace_target(os.path.join(rel_to_this_path, "application.manifest")),
+            '\\1  </Manifest>',
+            '\\1</ItemDefinitionGroup>',
+            '\\1<ItemDefinitionGroup Condition="\'$(ConfigurationType)\'==\'StaticLibrary\'">',
+            '\\1  <ClCompile>',
+            '\\1    <ProgramDataBaseFileName>$(OutDir)$(TargetName)$(TargetExt).pdb</ProgramDataBaseFileName>',
+            '\\1  </ClCompile>',
             '\\1</ItemDefinitionGroup>',
         ), False)),
 
