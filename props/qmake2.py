@@ -533,6 +533,7 @@ def _prepare_env():
         "2015": { "platformToolset": "v140", "MSC_VER": 1900, "MSC_FULL_VER": 190023026 },
         "2017": { "platformToolset": "v141", "MSC_VER": 1910, "MSC_FULL_VER": 191025017 },
         "2019": { "platformToolset": "v142", "MSC_VER": 1920, "MSC_FULL_VER": 192027508 },
+        "2022": { "platformToolset": "v143", "MSC_VER": 1930, "MSC_FULL_VER": 193030705 },
 
         "2012_xp": { "platformToolset": "v110_xp", "MSC_VER": 1700, "MSC_FULL_VER": 170050727 },
         "2013_xp": { "platformToolset": "v120_xp", "MSC_VER": 1800, "MSC_FULL_VER": 180021005 },
