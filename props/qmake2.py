@@ -26,6 +26,23 @@ class GlobalInfo:
     MSC_VER = 0
     MSC_FULL_VER = 0
 
+    msvc_vers = {
+        "2008": { "platformToolset": "v90", "MSC_VER": 1500, "MSC_FULL_VER": 150021022 },
+        "2010": { "platformToolset": "v100", "MSC_VER": 1600, "MSC_FULL_VER": 160030319 },
+        "2012": { "platformToolset": "v110", "MSC_VER": 1700, "MSC_FULL_VER": 170050727 },
+        "2013": { "platformToolset": "v120", "MSC_VER": 1800, "MSC_FULL_VER": 180021005 },
+        "2015": { "platformToolset": "v140", "MSC_VER": 1900, "MSC_FULL_VER": 190023026 },
+        "2017": { "platformToolset": "v141", "MSC_VER": 1910, "MSC_FULL_VER": 191025017 },
+        "2019": { "platformToolset": "v142", "MSC_VER": 1920, "MSC_FULL_VER": 192027508 },
+        "2022": { "platformToolset": "v143", "MSC_VER": 1930, "MSC_FULL_VER": 193030705 },
+
+        "2012_xp": { "platformToolset": "v110_xp", "MSC_VER": 1700, "MSC_FULL_VER": 170050727 },
+        "2013_xp": { "platformToolset": "v120_xp", "MSC_VER": 1800, "MSC_FULL_VER": 180021005 },
+        "2015_xp": { "platformToolset": "v140_xp", "MSC_VER": 1900, "MSC_FULL_VER": 190023026 },
+        "2017_xp": { "platformToolset": "v141_xp", "MSC_VER": 1910, "MSC_FULL_VER": 191025017 },
+    }
+
+
 globalInfo = GlobalInfo()
 
 def _make_path_re(path):
@@ -511,26 +528,10 @@ def _prepare_env():
     if not (platform == 'win64' or platform == 'win32'):
         raise Exception('QMAKESPEC must start be win32-msvcXXXX or win64-msvcXXXX')
 
-    msvc_vers = {
-        "2008": { "platformToolset": "v90", "MSC_VER": 1500, "MSC_FULL_VER": 150021022 },
-        "2010": { "platformToolset": "v100", "MSC_VER": 1600, "MSC_FULL_VER": 160030319 },
-        "2012": { "platformToolset": "v110", "MSC_VER": 1700, "MSC_FULL_VER": 170050727 },
-        "2013": { "platformToolset": "v120", "MSC_VER": 1800, "MSC_FULL_VER": 180021005 },
-        "2015": { "platformToolset": "v140", "MSC_VER": 1900, "MSC_FULL_VER": 190023026 },
-        "2017": { "platformToolset": "v141", "MSC_VER": 1910, "MSC_FULL_VER": 191025017 },
-        "2019": { "platformToolset": "v142", "MSC_VER": 1920, "MSC_FULL_VER": 192027508 },
-        "2022": { "platformToolset": "v143", "MSC_VER": 1930, "MSC_FULL_VER": 193030705 },
-
-        "2012_xp": { "platformToolset": "v110_xp", "MSC_VER": 1700, "MSC_FULL_VER": 170050727 },
-        "2013_xp": { "platformToolset": "v120_xp", "MSC_VER": 1800, "MSC_FULL_VER": 180021005 },
-        "2015_xp": { "platformToolset": "v140_xp", "MSC_VER": 1900, "MSC_FULL_VER": 190023026 },
-        "2017_xp": { "platformToolset": "v141_xp", "MSC_VER": 1910, "MSC_FULL_VER": 191025017 },
-    }
-
-    if not msvc in msvc_vers:
+    if not msvc in globalInfo.msvc_vers:
         raise Exception('QMAKESPEC is not found')
 
-    for k, v in msvc_vers[msvc].iteritems():
+    for k, v in globalInfo.msvc_vers[msvc].iteritems():
         setattr(globalInfo, k, v)
 
     globalInfo.temp_mkspec = tempfile.mkdtemp()
@@ -551,9 +552,18 @@ def _signal_handler(sig, frame):
 def main():
     signal.signal(signal.SIGINT, _signal_handler)
 
+    subarg = 1
+    if len(sys.argv) > 1:
+        if sys.argv[1].startswith("--"):
+            toolset = next((k for k in globalInfo.msvc_vers if globalInfo.msvc_vers[k]['platformToolset'] == sys.argv[1][2:]), None)
+            if toolset:
+                platform = os.environ["QMAKESPEC"].split('-')[0] if "QMAKESPEC" in os.environ else 'win32'
+                os.environ["QMAKESPEC"] = "%s-%s" % (platform, toolset)
+                subarg = 2
+
     _prepare_env()
 
-    command_list = ['qmake', '-tp', 'vc', '-r', '-spec', globalInfo.temp_mkspec] + sys.argv[1:]
+    command_list = ['qmake', '-tp', 'vc', '-r', '-spec', globalInfo.temp_mkspec] + sys.argv[subarg:]
 
     print u'Running qmake @ ' + os.getcwdu()
     process = subprocess.Popen(
