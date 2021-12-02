@@ -14,6 +14,7 @@
       <PropertyGroup>
         <QtLibPreprocessorDefinitions>QT_DLL;QT_THREAD_SUPPORT;$(QtLibPreprocessorDefinitions)</QtLibPreprocessorDefinitions>
         <QtLibAdditionalDependencies>$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(?&lt;lib&gt;\w+)(;|%24)', 'Qt%24{lib}$(QtLibSuffix)4.lib;').Split(';'))</QtLibAdditionalDependencies>
+        <QtLibAdditionalDependencies Condition="'$(ConfigurationType)' == 'Application'">qtmain$(QtLibSuffix).lib;$(QtLibAdditionalDependencies)</QtLibAdditionalDependencies>
 
         <CppCleanDependsOn>
           _QtCleanupPrepareTask;

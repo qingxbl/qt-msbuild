@@ -327,7 +327,7 @@ def _cure_vcxproj(filelines, path, out):
         _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionSettings" />$', ('\\1<ImportGroup Label="ExtensionSettings">', '\\1  <Import Project="%s" />' % _make_path_replace_target(os.path.join(rel_to_this_path, "qt4.props")), '\\1</ImportGroup>')),
         _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionTargets" />$', ('\\1<ImportGroup Label="ExtensionTargets">', '\\1  <Import Project="%s" />' % _make_path_replace_target(os.path.join(rel_to_this_path, "qt4.targets")), '\\1</ImportGroup>')),
         _handle_list(r'^\s*<PreprocessorDefinitions>(?P<list>.*)</PreprocessorDefinitions>$', (_handle_by_regex(r'QT_([A-Z]+_LIB|DLL|NO_DEBUG)', ()),)),
-        _handle_list(r'^\s*<AdditionalDependencies>(?P<list>.*)</AdditionalDependencies>$', (_handle_by_regex(r'%s[\\/]lib[\\/]Qt\w+\.lib' % globalInfo.path_re, ()),)),
+        _handle_list(r'^\s*<AdditionalDependencies>(?P<list>.*)</AdditionalDependencies>$', (_handle_by_regex(r'%s[\\/]lib[\\/][Qq]t\w+\.lib' % globalInfo.path_re, ()),)),
         _handle_by_regex(r'^(\s*<AdditionalLibraryDirectories)(>|.*?;)(%s[\\/]lib;)+(.*</AdditionalLibraryDirectories>)$' % globalInfo.path_re, ('\\1\\2\\4',)),
 
         _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>ClCompile) Include="(?P<file>.+\\qrc_.+.cpp)">$'),
