@@ -18,7 +18,7 @@
   <PropertyGroup>
     <QTDIR Condition="'$(QTDIR)' == ''">D:\Work\Qt\myenv-vc9-x86</QTDIR>
     <RelativeQTDIR>$([MSBuild]::MakeRelative($(ProjectDir), $(QTDIR)))</RelativeQTDIR>
-    <QtLib Condition="'$(QtLib)' == ''">Core</QtLib>
+    <QtLib Condition="'$(QtLib)' == '' and '$(ConfigurationType)' != 'Utility'">Core</QtLib>
     <QtIntDir Condition="'$(QtIntDir)' == ''">$(IntDir)gen\</QtIntDir>
     <QtMocChecker Condition="'$(QtMocChecker)' == ''">\b(Q_OBJECT(?!_FAKE)|Q_GADGET)\b</QtMocChecker>
     <QtMocSingleFileMode Condition="'$(QtMocSingleFileMode)' == ''">true</QtMocSingleFileMode>
