@@ -100,7 +100,7 @@
       <IncludePaths>$(QtMocIncludePaths)</IncludePaths>
       <PreprocessorDefinitions>$([System.String]::new('$(QtMocPreprocessorDefinitions)').Replace('%253D', '=').Replace('%2525', '%25').Split(';'))</PreprocessorDefinitions>
       <UndefinePreprocessorDefinitions>$(QtMocUndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
-      <Param>-D$([System.String]::new('$(QtMocPreprocessorDefinitions)').Replace('%253D', '=').Replace('%2525', '%25').Replace(';;', ';').Trim(';').Replace(';', ' -D')) -I$([System.String]::new('$(QtMocIncludePaths)').Replace(';;', ';').Replace('\;', ';').Trim(';').Trim('\').Replace(';', ' -I'))</Param>
+      <Param>-D&quot;$([System.String]::new('$(QtMocPreprocessorDefinitions)').Replace('%253D', '=').Replace('%2525', '%25').Replace(';;', ';').Trim(';').Replace(';', '&quot; -D&quot;'))&quot; -I$([System.String]::new('$(QtMocIncludePaths)').Replace(';;', ';').Replace('\;', ';').Trim(';').Trim('\').Replace(';', ' -I'))</Param>
     </QtMoc>
   </ItemDefinitionGroup>
 
@@ -873,7 +873,7 @@
 
   <Target Name="_QtCopyLib"
           BeforeTargets="PostBuildEvent"
-          Condition="'$(QtBootstrap)'!='true'"
+          Condition="'$(QtBootstrap)'!='true' and '$(QtLib)'!=''"
           Inputs="$(RelativeQTDIR)\bin\%(QtLib.Library)" Outputs="$(OutDir)%(QtLib.Library)">
       <Copy
           SourceFiles="$(RelativeQTDIR)\bin\$(OutDirConf)\%(QtLib.Library)"
