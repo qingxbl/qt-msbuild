@@ -1,12 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0"  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <QtLibSuffix Condition="'$(Configuration)'=='Debug'">d</QtLibSuffix>
+    <QtLibSuffix Condition="'$(UseDebugLibraries)'=='true'">d</QtLibSuffix>
     <QtLibAdditionalIncludeDirectories>$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(\w+)(;|%24)', '$(RelativeQTDIR)\include\Qt%241;').Split(';'))</QtLibAdditionalIncludeDirectories>
     <QtLibPrivateAdditionalIncludeDirectories Condition="'$(QtUsePrivate)'=='true' or '$(QtBootstrap)'=='true'">$([System.Text.RegularExpressions.Regex]::Replace($(QtLib), '(\w+)(;|%24)', '$(RelativeQTDIR)\include\Qt%241\private;').Split(';'))</QtLibPrivateAdditionalIncludeDirectories>
-    <QtLibAdditionalIncludeDirectories>$(RelativeQTDIR)\include;$(QtLibAdditionalIncludeDirectories)</QtLibAdditionalIncludeDirectories>
+    <QtLibAdditionalIncludeDirectories>$(RelativeQTDIR)\include;$(QtLibAdditionalIncludeDirectories);$(RelativeQTDIR)\mkspecs\win32-msvc2010</QtLibAdditionalIncludeDirectories>
     <QtLibAdditionalIncludeDirectories Condition="'$(QtLibPrivateAdditionalIncludeDirectories)' != ''">$(QtLibAdditionalIncludeDirectories);$(QtLibPrivateAdditionalIncludeDirectories)</QtLibAdditionalIncludeDirectories>
     <QtLibPreprocessorDefinitions>$([System.Text.RegularExpressions.Regex]::Replace($(QtLib.toUpper()), '(\w+)(;|%24)', 'QT_%241_LIB;').Split(';'))</QtLibPreprocessorDefinitions>
+    <QtLibPreprocessorDefinitions>QT_HAVE_MMX;QT_HAVE_SSE;QT_HAVE_MMXEXT;QT_HAVE_SSE2;$(QtLibPreprocessorDefinitions)</QtLibPreprocessorDefinitions>
+    <QtLibPreprocessorDefinitions Condition="'$(UseDebugLibraries)'!='true'">QT_NO_DEBUG;$(QtLibPreprocessorDefinitions)</QtLibPreprocessorDefinitions>
   </PropertyGroup>
 
   <Choose>
@@ -54,7 +56,6 @@
     <Otherwise>
       <PropertyGroup>
         <QtLibPreprocessorDefinitions>Z_PREFIX;QT_BOOTSTRAPPED;QT_USE_QSTRINGBUILDER;QT_NO_FOREACH;QT_VERSION_STR="$(QT_VERSION)";QT_VERSION_MAJOR=$(QT_VERSION_MAJOR);QT_VERSION_MINOR=$(QT_VERSION_MINOR);QT_VERSION_PATCH=$(QT_VERSION_PATCH);$(QtLibPreprocessorDefinitions)</QtLibPreprocessorDefinitions>
-        <QtLibPreprocessorDefinitions Condition="'$(Configuration)'=='Release'">QT_NO_DEBUG;$(QtLibPreprocessorDefinitions)</QtLibPreprocessorDefinitions>
         <QtLibAdditionalIncludeDirectories>$(RelativeQTDIR)\src\build-bootstrap;$(QtLibAdditionalIncludeDirectories)</QtLibAdditionalIncludeDirectories>
         <QtLibAdditionalDependencies>Netapi32.lib;$(QtLibAdditionalDependencies)</QtLibAdditionalDependencies>
       </PropertyGroup>
