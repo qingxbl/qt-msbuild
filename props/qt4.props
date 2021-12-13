@@ -7,14 +7,6 @@
     <QT_VERSION>$(QT_VERSION_MAJOR).$(QT_VERSION_MINOR).$(QT_VERSION_PATCH)</QT_VERSION>
   </PropertyGroup>
 
-  <ItemGroup>
-    <DependPackage Include="dw3rd\qt2015-4.7.1">
-      <URLPrefix>http://repo.yy.com/dwintegrate</URLPrefix>
-      <Version>2019.471.2.21</Version>
-      <CopyFileInclude></CopyFileInclude>
-    </DependPackage>
-  </ItemGroup>
-
   <PropertyGroup>
     <QTDIR Condition="'$(QTDIR)' == ''">D:\Work\Qt\myenv-vc9-x86</QTDIR>
     <RelativeQTDIR>$([MSBuild]::MakeRelative($(ProjectDir), $(QTDIR)))</RelativeQTDIR>
