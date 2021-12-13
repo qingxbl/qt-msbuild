@@ -59,7 +59,7 @@
     </ClInclude>
 
     <Link>
-      <AdditionalLibraryDirectories>$(RelativeQTDIR)\lib\$(OutDirConf);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(RelativeQTDIR)\lib;$(RelativeQTDIR)\lib\$(OutDirConf);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
 </Project>
