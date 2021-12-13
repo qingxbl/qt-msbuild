@@ -875,9 +875,9 @@
   <Target Name="_QtCopyLib"
           BeforeTargets="PostBuildEvent"
           Condition="'$(QtBootstrap)'!='true' and '$(QtLib)'!=''"
-          Inputs="$(RelativeQTDIR)\bin\%(QtLib.Library)" Outputs="$(OutDir)%(QtLib.Library)">
+          Inputs="$(QtBinDIR)\%(QtLib.Library)" Outputs="$(OutDir)%(QtLib.Library)">
       <Copy
-          SourceFiles="$(RelativeQTDIR)\bin\$(OutDirConf)\%(QtLib.Library)"
+          SourceFiles="$(QtBinDIR)\%(QtLib.Library)"
           DestinationFolder="$(OutDir)"
         />
       <Message Importance="high" Text="Copy %(QtLib.Library)" />
