@@ -463,7 +463,8 @@
           DependsOnTargets="_QtQrcGetIncludedFiles;_QtQrcExec;_QtQrcExportResult" />
   <Target Name="_QtQrcGetIncludedFiles"
           Inputs="%(QtQrc.ProjectDir)%(QtQrc.Identity)"
-          Outputs="%(QtQrc.ProjectDir)%(QtQrc.Identity).dummy">
+          Outputs="%(QtQrc.ProjectDir)%(QtQrc.Identity).dummy"
+          Condition="$([System.Version]::new($(MSBuildAssemblyVersion)).Major)&gt;=15">
     <XmlPeek XmlInputPath="%(QtQrc.ProjectDir)%(QtQrc.Identity)"
              Query="/RCC/qresource/file/text()">
       <Output TaskParameter="Result" ItemName="QtQrcIncludedFiles" />
