@@ -503,12 +503,17 @@ def _cure_projects(path):
                     break
         break
 
-def _prepare_env():
-    process = subprocess.Popen(['qmake', '-v'],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+def _execute(cmd):
+    with open(os.devnull, 'w') as FNULL:
+        return subprocess.Popen(cmd,
+            stdout=subprocess.PIPE,
+            stderr=FNULL)
 
-    match = re.compile(r'^Using Qt version (?P<major>\d+).(?P<minor>\d+).(?P<patch>\d+) in (?P<path>.*?)([/\\]lib)?$').match(process.communicate()[0].splitlines(False)[1])
+def _prepare_env():
+    process = _execute(['qmake', '-v'])
+
+    qt_ver_msg = process.communicate()[0].splitlines(False)
+    match = re.compile(r'^Using Qt version (?P<major>\d+).(?P<minor>\d+).(?P<patch>\d+) in (?P<path>.*?)([/\\]lib)?$').match(qt_ver_msg[1])
     if match:
         print match.group(0)
         for k, v in match.groupdict().iteritems():
@@ -516,7 +521,7 @@ def _prepare_env():
 
         globalInfo.path_re = _make_path_re(globalInfo.path)
     else:
-        raise Exception('Can\'t detect Qt version')
+        raise Exception('Can\'t detect Qt version, reutrn is %s.' % qt_ver_msg)
 
     platform, msvc = os.environ["QMAKESPEC"].split('-')
     if msvc.startswith('msvc'):
@@ -560,13 +565,8 @@ def main():
 
     _prepare_env()
 
-    command_list = ['qmake', '-tp', 'vc', '-r', '-spec', globalInfo.temp_mkspec] + sys.argv[subarg:]
-
     print u'Running qmake @ ' + os.getcwdu()
-    process = subprocess.Popen(
-        command_list,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+    process = _execute(['qmake', '-tp', 'vc', '-r', '-spec', globalInfo.temp_mkspec] + sys.argv[subarg:])
 
     for proj in _getProjects(process.communicate()[0]):
         _cure_projects(proj)
