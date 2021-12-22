@@ -312,6 +312,8 @@ def _cure_vcxproj(filelines, path, out):
             _handle_by_regex(r'^("?)%s.*\1$' % globalInfo.path_re, ()),
             _handle_by_regex(_make_path_re(globalInfo.temp_mkspec), (_make_path_replace_target(os.path.join(os.path.dirname(rel_to_this_path), "backport", "v90")),) if globalInfo.platformToolset == "v90" else ()),
         )),
+
+        _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>CustomBuild) Include="(?P<file>.+\\.+\.(moc|res))">$'),
     )
 
     qt_handler = (
@@ -330,9 +332,7 @@ def _cure_vcxproj(filelines, path, out):
         _handle_list(r'^\s*<AdditionalDependencies>(?P<list>.*)</AdditionalDependencies>$', (_handle_by_regex(r'%s[\\/]lib[\\/][Qq]t\w+\.lib' % globalInfo.path_re, ()),)),
         _handle_by_regex(r'^(\s*<AdditionalLibraryDirectories)(>|.*?;)(%s[\\/]lib;)+(.*</AdditionalLibraryDirectories>)$' % globalInfo.path_re, ('\\1\\2\\4',)),
 
-        _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>ClCompile) Include="(?P<file>.+\\qrc_.+.cpp)">$'),
-        _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>ClCompile) Include="(?P<file>.+\\moc_.+.cpp)">$'),
-        _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>CustomBuild) Include="(?P<file>.+\\.+.moc)">$'),
+        _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>ClCompile) Include="(?P<file>.+\\(qrc|moc)_.+\.cpp)">$'),
     ) if enabledLibs else ()
 
     handlers = base_handler + qt_handler + (append_line, )
