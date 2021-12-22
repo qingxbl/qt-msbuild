@@ -274,7 +274,11 @@ def eat_line(_, line):
 def _cure_vcxproj(filelines, path, out):
     enabledLibs = _is_qt_enabled(filelines)
 
-    rel_to_this_path = os.path.relpath(os.path.dirname(__file__), os.path.dirname(out))
+    rel_to_this_path = os.path.dirname(__file__)
+    try:
+        rel_to_this_path = os.path.relpath(rel_to_this_path, os.path.dirname(out))
+    except:
+        pass
 
     base_handler = (
         _handle_by_regex(r'^(\s*)<PropertyGroup Label="Globals">$', ('\\g<0>', '\\1  <PlatformToolset>%s</PlatformToolset>' % globalInfo.platformToolset)),
