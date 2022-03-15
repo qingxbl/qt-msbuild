@@ -51,22 +51,22 @@ def _make_path_replace_target(path):
     return path.replace('\\', '\\\\') 
 
 def _getProjects(qmake_out):
-    cwd = os.path.normcase(os.path.normpath(os.getcwd()))
-    seen = set([cwd])
-    yield cwd
+    prev = ()
+    qmake_proj_prefix = "DEBUG 1: QMAKE_MAKEFILE === "
 
-    re1 = re.compile(r'^ *Reading (.*)\/.*\.pro%s?$' % '\r')
-    re2 = re.compile(r'^ *Reading .*\/.*\.pro \[(.*)\]%s?$' % '\r')
-    for line in cStringIO.StringIO(qmake_out):
-        ma = re1.search(line)
-        if not ma:
-            ma = re2.search(line)
+    for line in qmake_out:
+        if line.startswith(qmake_proj_prefix):
+            for x in iter(prev):
+                yield x
 
-        if ma:
-            normalized = os.path.normcase(os.path.normpath(ma.group(1)))
-            if normalized not in seen:
-                seen.add(normalized)
-                yield normalized
+            proj = os.path.normcase(os.path.normpath(line.replace(qmake_proj_prefix, "", 1).rstrip()))
+            if proj.endswith('.vcxproj'):
+                prev = (proj, proj + '.filters')
+            else:
+                prev = (proj,)
+
+    for x in iter(prev):
+        yield x
 
 def _loadFile(path, modifier, out):
     return modifier(map(string.rstrip, codecs.open(path, 'r', 'gbk')), path, out)
@@ -497,24 +497,19 @@ def _cure_projects(path):
         ('.vcxproj.filters', _cure_vcxproj_filters),
         ('.sln', _cure_sln),
     )
-    for root, _, files in os.walk(path):
-        for f in files:
-            for s, p in doctors:
-                if f.endswith(s):
-                    fp = os.path.join(root, f)
-                    print 'Curing ' + fp
-                    _cure_path(fp, p)
-                    break
-        break
 
-def _execute(cmd):
-    with open(os.devnull, 'w') as FNULL:
-        return subprocess.Popen(cmd,
-            stdout=subprocess.PIPE,
-            stderr=FNULL)
+    for extension, doctor in doctors:
+        if path.endswith(extension):
+            _cure_path(path, doctor)
+            break
+
+def _devnull():
+    return open(os.devnull, 'w')
 
 def _prepare_env():
-    process = _execute(['qmake', '-v'])
+    process = subprocess.Popen(['qmake', '-v'],
+            stdout=subprocess.PIPE,
+            stderr=_devnull())
 
     qt_ver_msg = process.communicate()[0].splitlines(False)
     match = re.compile(r'^Using Qt version (?P<major>\d+).(?P<minor>\d+).(?P<patch>\d+) in (?P<path>.*?)([/\\]lib)?$').match(qt_ver_msg[1])
@@ -570,9 +565,10 @@ def main():
     _prepare_env()
 
     print u'Running qmake @ ' + os.getcwdu()
-    process = _execute(['qmake', '-tp', 'vc', '-r', '-spec', globalInfo.temp_mkspec] + sys.argv[subarg:])
+    process = subprocess.Popen(['qmake', '-d', '-tp', 'vc', '-r', '-spec', globalInfo.temp_mkspec] + sys.argv[subarg:],
+                               stderr=subprocess.PIPE)
 
-    for proj in _getProjects(process.communicate()[0]):
+    for proj in _getProjects(process.stderr):
         _cure_projects(proj)
 
     _clear_env()
