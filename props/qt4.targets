@@ -127,7 +127,7 @@
 
 <!-- Compile Tasks -->
   <Target Name="_QtCompileTask"
-          DependsOnTargets="_QtMakeDirTask;_QtPrepareTask;_QtSelectTask;_QtRunTask;_QtProcessResultTask;_QtAddSourceTask;_QtCheckCacheTask;_QtWriteCacheTask;_QtAddSourceTask" />
+          DependsOnTargets="_QtMakeDirTask;_QtPrepareTask;_QtSelectTask;_QtRunTask;_QtProcessResultTask;_QtAddSourceTask;_QtCheckCacheTask;_QtWriteCacheTask" />
 
 <!-- Cleanup Tasks -->
   <Target Name="_QtCleanupPrepareTask"
