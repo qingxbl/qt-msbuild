@@ -259,11 +259,12 @@ def _handle_custom_build(filelines):
 
     return func
 
-def _is_qt_enabled(filelines):
+def _is_qt_enabled(filelines, path):
     additionalIncludeDirectoriesRe = re.compile(r'^\s*<AdditionalIncludeDirectories>(.*)</AdditionalIncludeDirectories>$')
-    qtRe = re.compile(r'^("?)%s[\\/]include[\\/]Qt(\w+)\1$' % globalInfo.path_re)
+    cur_qt_path_re = r'(%s|%s)' % (globalInfo.path_re, _make_path_re(os.path.relpath(globalInfo.path, os.path.dirname(path))))
+    qtRe = re.compile(r'^("?)%s[\\/]include[\\/]Qt(\w+)\1$' % cur_qt_path_re)
 
-    return map(lambda x: x.group(2), filter(None, (qtRe.match(x) for x in filter(None, (additionalIncludeDirectoriesRe.match(x) for x in filelines))[0].group(1).split(';'))))
+    return (map(lambda x: x.group(3), filter(None, (qtRe.match(x) for x in filter(None, (additionalIncludeDirectoriesRe.match(x) for x in filelines))[0].group(1).split(';')))), cur_qt_path_re)
 
 def append_line(_, line):
     return (1, (line,))
@@ -272,7 +273,7 @@ def eat_line(_, line):
     return (1, ())
 
 def _cure_vcxproj(filelines, path, out):
-    enabledLibs = _is_qt_enabled(filelines)
+    enabledLibs, cur_qt_path_re = _is_qt_enabled(filelines, path)
 
     rel_to_this_path = os.path.dirname(__file__)
     try:
@@ -313,13 +314,12 @@ def _cure_vcxproj(filelines, path, out):
         _handle_by_regex(r'^(\s*)<(\S+)(.*)>(.*)\$\(NOINHERIT\)(.*)</\2>$', ('\\1<\\2\\3>\\4\\5</\\2>',)),
         _handle_by_regex(r'^(\s*)<(\S+)(.*)>(.*)\$\(INHERIT\)(.*)</\2>$', ('\\1<\\2\\3>\\4%(\\2)\\5</\\2>',)),
         _handle_list(r'^\s*<AdditionalIncludeDirectories>(?P<list>.*)</AdditionalIncludeDirectories>$', (
-            _handle_by_regex(r'^("?)%s.*\1$' % globalInfo.path_re, ()),
+            _handle_by_regex(r'^("?)%s.*\1$' % cur_qt_path_re, ()),
             _handle_by_regex(_make_path_re(globalInfo.temp_mkspec), (_make_path_replace_target(os.path.join(os.path.dirname(rel_to_this_path), "backport", "v90")),) if globalInfo.platformToolset == "v90" else ()),
         )),
 
         _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>CustomBuild) Include="(?P<file>.+\\.+\.(moc|res))">$'),
     )
-
     qt_handler = (
         _handle_by_regex(r'^(\s*)<Import Project="\$\(VCTargetsPath\)\\Microsoft\.Cpp\.props" />$', (
             '\\1<PropertyGroup Label="Qt">',
@@ -333,8 +333,8 @@ def _cure_vcxproj(filelines, path, out):
         _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionSettings" />$', ('\\1<ImportGroup Label="ExtensionSettings">', '\\1  <Import Project="%s" />' % _make_path_replace_target(os.path.join(rel_to_this_path, "qt4.props")), '\\1</ImportGroup>')),
         _handle_by_regex(r'^(\s*)<ImportGroup Label="ExtensionTargets" />$', ('\\1<ImportGroup Label="ExtensionTargets">', '\\1  <Import Project="%s" />' % _make_path_replace_target(os.path.join(rel_to_this_path, "qt4.targets")), '\\1</ImportGroup>')),
         _handle_list(r'^\s*<PreprocessorDefinitions>(?P<list>.*)</PreprocessorDefinitions>$', (_handle_by_regex(r'QT_([A-Z]+_LIB|DLL|NO_DEBUG)', ()),)),
-        _handle_list(r'^\s*<AdditionalDependencies>(?P<list>.*)</AdditionalDependencies>$', (_handle_by_regex(r'%s[\\/]lib[\\/][Qq]t\w+\.lib' % globalInfo.path_re, ()),)),
-        _handle_by_regex(r'^(\s*<AdditionalLibraryDirectories)(>|.*?;)(%s[\\/]lib;)+(.*</AdditionalLibraryDirectories>)$' % globalInfo.path_re, ('\\1\\2\\4',)),
+        _handle_list(r'^\s*<AdditionalDependencies>(?P<list>.*)</AdditionalDependencies>$', (_handle_by_regex(r'%s[\\/]lib[\\/][Qq]t\w+\.lib' % cur_qt_path_re, ()),)),
+        _handle_list(r'^\s*<AdditionalLibraryDirectories>(?P<list>.*)</AdditionalLibraryDirectories>$', (_handle_by_regex(r'%s[\\/]lib' % cur_qt_path_re, ()),)),
 
         _handle_remove_range(filelines, r'^(?P<indent>\s+)<(?P<mark>ClCompile) Include="(?P<file>.+\\(qrc|moc)_.+\.cpp)">$'),
     ) if enabledLibs else ()
