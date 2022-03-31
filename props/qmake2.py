@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import subprocess
-import cStringIO
 import re
 import os
 import sys
@@ -261,7 +260,9 @@ def _handle_custom_build(filelines):
 
 def _is_qt_enabled(filelines, path):
     additionalIncludeDirectoriesRe = re.compile(r'^\s*<AdditionalIncludeDirectories>(.*)</AdditionalIncludeDirectories>$')
-    cur_qt_path_re = r'(%s|%s)' % (globalInfo.path_re, _make_path_re(os.path.relpath(globalInfo.path, os.path.dirname(path))))
+    qt_drive, _ = os.path.splitdrive(globalInfo.path)
+    path_drive, _ = os.path.splitdrive(path)
+    cur_qt_path_re = (r'(%s|%s)' % (globalInfo.path_re, _make_path_re(os.path.relpath(globalInfo.path, os.path.dirname(path))))) if qt_drive == path_drive else (r'(%s)' % globalInfo.path_re)
     qtRe = re.compile(r'^("?)%s[\\/]include[\\/]Qt(\w+)\1$' % cur_qt_path_re)
 
     return (map(lambda x: x.group(3), filter(None, (qtRe.match(x) for x in filter(None, (additionalIncludeDirectoriesRe.match(x) for x in filelines))[0].group(1).split(';')))), cur_qt_path_re)
